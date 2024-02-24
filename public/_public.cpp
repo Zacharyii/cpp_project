@@ -806,6 +806,7 @@ bool addtime(const string &in_stime,char *out_stime,const int timetvl,const stri
 
     return true;
 }
+
 ctimer::ctimer()
 {
     start();   // 计时开始。
