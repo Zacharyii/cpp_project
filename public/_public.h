@@ -345,3 +345,89 @@ public:
     ~cdir();  // 析构函数。
 };
 ///////////////////////////////////// /////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// 写文件的类。
+class cofile  // class out file
+{
+private:
+    ofstream fout;                  // 写入文件的对象。
+    string   m_filename;         // 文件名，建议采用绝对路径。
+    string   m_filenametmp;  // 临时文件名，在m_filename后面加".tmp"。
+public:
+    cofile() {} //类的默认构造函数
+    bool isopen() const { return fout.is_open(); }     // 文件是否已打开。
+
+    // 打开文件。
+    // filename，待打开的文件名。
+    // btmp，是否采用临时文件的方案。
+    // mode，打开文件的模式。
+    // benbuffer，是否启用文件缓冲区。
+    bool open(const string &filename,const bool btmp=true,const ios::openmode mode=ios::out,const bool benbuffer=true);
+
+    // 把数据以文本的方式格式化输出到文件。
+    template< typename... Args >
+    bool writeline(const char* fmt, Args... args) 
+    {
+        if (fout.is_open()==false) return false;
+
+        fout << sformat(fmt,args...);
+
+        return fout.good();//检查文件流的状态，表示文件流是否处于可用状态
+    }
+
+    // 重载<<运算符，把数据以文本的方式输出到文件。
+    // 注意：换行只能用\n，不能用endl。
+    template<typename T>
+    cofile& operator<<(const T &value)
+    {
+        fout << value; return *this;
+    }
+
+    // 把二进制数据写入文件。
+    bool write(void *buf,int bufsize);
+
+    // 关闭文件，并且把临时文件名改为正式文件名。
+    bool closeandrename();
+
+    // 关闭文件，如果有临时文件，则删除它。
+    void close();
+
+    ~cofile() { close(); };
+};
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// 读取文件的类。
+class cifile    // class in file
+{
+private:
+    ifstream fin;                     // 读取文件的对象。
+    string   m_filename;         // 文件名，建议采用绝对路径。
+public:
+    cifile() {}
+
+    // 判断文件是否已打开。
+    bool isopen() const { return fin.is_open(); }
+
+    // 打开文件。
+    // filename，待打开的文件名。
+    // mode，打开文件的模式。
+    bool open(const string &filename,const ios::openmode mode=ios::in);//以输入模式打开文件
+
+    // 以行的方式读取文本文件，endbz指定行的结尾标志，缺省为空，没有结尾标志。
+    bool readline(string &buf,const string& endbz="");
+
+    // 读取二进制文件，返回实际读取到的字节数。
+    int read(void *buf,const int bufsize);
+
+    // 关闭并删除文件。
+    bool closeandremove();
+
+    // 只关闭文件。
+    void close();
+
+    ~cifile() { close(); }
+};
+///////////////////////////////////////////////////////////////////////////////////////////////////
+

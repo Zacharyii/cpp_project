@@ -1082,3 +1082,131 @@ cdir::~cdir()
 {
     m_filelist.clear();
 }
+
+bool cofile::open(const string &filename,const bool btmp,const ios::openmode mode,const bool benbuffer)
+{
+    // 如果文件是打开的状态，先关闭它。
+    if (fout.is_open()) fout.close();
+
+    m_filename=filename;
+
+    newdir(m_filename,true);     // 如果文件的目录不存在，创建目录。
+
+    if (btmp==true) 
+    {   // 采用临时文件的方案。
+        m_filenametmp=m_filename+".tmp";
+        fout.open(m_filenametmp,mode);
+    }
+    else
+    {   // 不采用临时文件的方案。
+        m_filenametmp.clear();
+        fout.open(m_filename,mode);
+    }
+
+    // 不启用文件缓冲区。
+    if (benbuffer==false) fout << unitbuf;
+
+    return fout.is_open();
+}
+
+bool cofile::write(void *buf,int bufsize)
+{
+    if (fout.is_open()==false) return false;
+
+    // fout.write((char *)buf,bufsize);
+    fout.write(static_cast<char *>(buf),bufsize); //把二进制数据写入文件
+
+    return fout.good();//返回true表示文件流没有遇到任何错误，并且可以继续写入数据
+}
+
+// 关闭文件，并且把临时文件名改为正式文件名。
+bool cofile::closeandrename()
+{
+    if (fout.is_open()==false) return false;
+
+    fout.close();
+
+    //  如果采用了临时文件的方案。
+    if (m_filenametmp.empty()==false) 
+        if (rename(m_filenametmp.c_str(),m_filename.c_str())!=0) return false;
+
+    return true;
+}
+
+// 关闭文件，删除临时文件。
+void cofile::close() 
+{ 
+    if (fout.is_open()==false) return;
+
+    fout.close(); 
+
+    //  如果采用了临时文件的方案。
+    if (m_filenametmp.empty()==false) 
+        remove(m_filenametmp.c_str());
+}
+
+bool cifile::open(const string &filename,const ios::openmode mode)
+{
+    // 如果文件是打开的状态，先关闭它。
+    if (fin.is_open()) fin.close();
+
+    m_filename=filename;
+
+    fin.open(m_filename,mode);
+
+    return fin.is_open();
+}
+
+bool cifile::readline(string &buf,const string& endbz)
+{
+    buf.clear();            // 清空buf。
+
+    string strline;        // 存放从文件中读取的一行。
+
+    while (true)
+    {
+        getline(fin,strline);    // 从文件中读取一行文本存储到strline中。
+      
+        if (fin.eof()) break;    // 如果文件已读完（检测文件是否已到末尾）。
+
+        buf=buf+strline;      // 把读取的内容拼接到buf中。
+
+        if (endbz=="")
+            return true;          // 如果行没有结尾标志。
+        else 
+        {
+            // 如果行有结尾标志，判断本次是否读到了结尾标志，如果没有，继续读，如果有，返回。
+            if (buf.find(endbz,buf.length()-endbz.length()) != string::npos) return true;
+        }
+
+        buf=buf+"\n";        // getline从文件中读取一行的时候，会删除\n，所以，这里要补上\n，因为这个\n不应该被删除。
+    }
+
+    return false;
+}
+
+int cifile::read(void *buf,const int bufsize)
+{
+    // fin.read((char *)buf,bufsize);
+    fin.read(static_cast<char *>(buf),bufsize);
+
+    return fin.gcount();          // 返回读取的字节数。
+}
+
+bool cifile::closeandremove()
+{
+    if (fin.is_open()==false) return false;
+
+    fin.close(); 
+
+    if (remove(m_filename.c_str())!=0) return false;
+
+    return true;
+}
+
+void cifile::close() 
+{ 
+    if (fin.is_open()==false) return;
+
+    fin.close(); 
+}
