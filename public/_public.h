@@ -431,3 +431,216 @@ public:
 };
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// 自旋锁。  互斥锁是阻塞等待，不占用CPU，适用跨进程的线程同步。自旋锁是自旋等待，需要占用CPU，适用同进程的线程同步
+class spinlock_mutex
+{
+private:
+    atomic_flag flag;// atomic_flag原子类型只有set已设置和clear未设置两种状态
+
+    spinlock_mutex(const spinlock_mutex&) = delete;//禁用拷贝构造和赋值操作
+    spinlock_mutex& operator=(const spinlock_mutex) = delete;
+public:
+    spinlock_mutex() 
+    {
+        flag.clear();
+    }
+    void lock()           // 加锁。
+    {
+        while (flag.test_and_set())
+            ;
+    }
+    void unlock()      // 解锁。
+    {
+        flag.clear();
+    }
+};
+
+///////////////////////////////////// /////////////////////////////////////
+// 日志文件。
+class clogfile
+{
+    ofstream fout;                       // 日志文件对象。
+    string   m_filename;              // 日志文件名，建议采用绝对路径。
+    ios::openmode m_mode;      // 日志文件的打开模式。
+    bool     m_backup;                // 是否自动切换日志。
+    int        m_maxsize;               // 当日志文件的大小超过本参数时，自动切换日志。
+    bool     m_enbuffer;              // 是否启用文件缓冲区。
+    spinlock_mutex m_splock;    // 自旋锁，用于多线程程序中给写日志的操作加锁。
+
+public:
+    // 构造函数，日志文件的大小缺省100M。
+    clogfile(int maxsize=100):m_maxsize(maxsize){}
+
+    // 打开日志文件。
+    // filename：日志文件名，建议采用绝对路径，如果文件名中的目录不存在，就先创建目录。
+    // openmode：日志文件的打开模式，缺省值是ios::app。
+    // bbackup：是否自动切换（备份），true-切换，false-不切换，在多进程的服务程序中，如果多个进程共用一个日志文件，bbackup必须为false。
+    // benbuffer：是否启用文件缓冲机制，true-启用，false-不启用，如果启用缓冲区，那么写进日志文件中的内容不会立即写入文件，缺省是不启用。
+    // 注意，在多进程的程序中，多个进程往同一日志文件写入大量的日志时，可能会出现小混乱，但是，多线程不会。
+    // 1）多个进程往同一日志文件写入大量的日志时，可能会出现小混乱，这个问题并不严重，可以容忍；
+    // 2）只有同时写大量日志时才会出现混乱，在实际开发中，这种情况不多见。
+    // 3）如果业务无法容忍，可以用信号量加锁。
+    bool open(const string &filename,const ios::openmode mode=ios::app,const bool bbackup=true,const bool benbuffer=false);
+
+    // 把日志内容以文本的方式格式化输出到日志文件，并且，在日志内容前面写入时间。
+    template< typename... Args >
+    bool write(const char* fmt, Args... args) 
+    {
+        if (fout.is_open()==false) return false;
+
+        backup();                   // 判断是否需要切换日志文件。
+
+        m_splock.lock();        // 加锁。
+        fout << ltime1() << " " << sformat(fmt,args...);      // 把当前时间和日志内容写入日志文件。
+        m_splock.unlock();    // 解锁。
+
+        return fout.good();
+    }
+
+    // 重载<<运算符，把日志内容以文本的方式输出到日志文件，不会在日志内容前面写时间。
+    // 注意：内容换行用\n，不能用endl。
+    template<typename T>
+    clogfile& operator<<(const T &value)
+    {
+        m_splock.lock();
+        fout << value; 
+        m_splock.unlock();
+
+        return *this;
+    }
+  
+private:
+    // 如果日志文件的大小超过m_maxsize的值，就把当前的日志文件名改为历史日志文件名，再创建新的当前日志文件。
+    // 备份后的文件会在日志文件名后加上日期时间，如/tmp/log/filetodb.log.20200101123025。
+    // 注意，在多进程的程序中，日志文件不可切换，多线的程序中，日志文件可以切换。
+    bool backup();
+public:
+    void close() { fout.close(); }
+
+    ~clogfile() { close(); };
+};
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// 以下是socket通讯的函数和类
+
+// socket通讯的客户端类
+class ctcpclient
+{
+private:
+    int  m_connfd;    // 客户端的socket.
+    string m_ip;        // 服务端的ip地址。
+    int  m_port;        // 服务端通讯的端口。
+public:
+    ctcpclient(): m_connfd(-1),m_port(0) { }  // 构造函数。
+
+    // 向服务端发起连接请求。
+    // ip：服务端的ip地址。
+    // port：服务端通讯的端口。
+    // 返回值：true-成功；false-失败。
+    bool connect(const string &ip,const int port);
+
+    // 接收对端发送过来的数据。
+    // buffer：存放接收数据缓冲区。
+    // ibuflen: 打算接收数据的大小。
+    // itimeout：等待数据的超时时间（秒）：-1-不等待；0-无限等待；>0-等待的秒数。
+    // 返回值：true-成功；false-失败，失败有两种情况：1）等待超时；2）socket连接已不可用。
+    bool read(string &buffer,const int itimeout=0);                           // 接收文本数据。
+    bool read(void *buffer,const int ibuflen,const int itimeout=0);   // 接收二进制数据。
+
+    // 向对端发送数据。
+    // buffer：待发送数据缓冲区。
+    // ibuflen：待发送数据的大小。
+    // 返回值：true-成功；false-失败，如果失败，表示socket连接已不可用。
+    bool write(const string &buffer);                          // 发送文本数据。
+    bool write(const void *buffer,const int ibuflen);   // 发送二进制数据。
+
+    // 断开与服务端的连接
+    void close();
+
+    ~ctcpclient();  // 析构函数自动关闭socket，释放资源。
+};
+
+// socket通讯的服务端类
+class ctcpserver
+{
+private:
+    int m_socklen;                                // 结构体struct sockaddr_in的大小。
+    struct sockaddr_in m_clientaddr;   // 客户端的地址信息。
+    struct sockaddr_in m_servaddr;     // 服务端的地址信息。
+    int  m_listenfd;                               // 服务端用于监听的socket。
+    int  m_connfd;                                // 客户端连接上来的socket。
+public:
+    ctcpserver():m_listenfd(-1),m_connfd(-1) {}  // 构造函数。
+
+    // 服务端初始化。
+    // port：指定服务端用于监听的端口。
+    // 返回值：true-成功；false-失败，一般情况下，只要port设置正确，没有被占用，初始化都会成功。
+    bool initserver(const unsigned int port,const int backlog=5); 
+
+    // 从已连接队列中获取一个客户端连接，如果已连接队列为空，将阻塞等待。
+    // 返回值：true-成功的获取了一个客户端连接，false-失败，如果accept失败，可以重新accept。
+    bool accept();
+
+    // 获取客户端的ip地址。
+    // 返回值：客户端的ip地址，如"192.168.1.100"。
+    char *getip();
+
+    // 接收对端发送过来的数据。
+    // buffer：存放接收数据的缓冲区。
+    // ibuflen: 打算接收数据的大小。
+    // itimeout：等待数据的超时时间（秒）：-1-不等待；0-无限等待；>0-等待的秒数。
+    // 返回值：true-成功；false-失败，失败有两种情况：1）等待超时；2）socket连接已不可用。
+    bool read(string &buffer,const int itimeout=0);                           // 接收文本数据。
+    bool read(void *buffer,const int ibuflen,const int itimeout=0);   // 接收二进制数据。
+
+    // 向对端发送数据。
+    // buffer：待发送数据缓冲区。
+    // ibuflen：待发送数据的大小。
+    // 返回值：true-成功；false-失败，如果失败，表示socket连接已不可用。
+    bool write(const string &buffer);                          // 发送文本数据。
+    bool write(const void *buffer,const int ibuflen);   // 发送二进制数据。
+
+    // 关闭监听的socket，即m_listenfd，常用于多进程服务程序的子进程代码中。
+    void closelisten();
+
+    // 关闭客户端的socket，即m_connfd，常用于多进程服务程序的父进程代码中。
+    void closeclient();
+
+    ~ctcpserver();  // 析构函数自动关闭socket，释放资源。
+};
+
+// 接收socket的对端发送过来的数据。
+// sockfd：可用的socket连接。
+// buffer：接收数据缓冲区的地址。
+// ibuflen：本次成功接收数据的字节数。
+// itimeout：读取数据超时的时间，单位：秒，-1-不等待；0-无限等待；>0-等待的秒数。
+// 返回值：true-成功；false-失败，失败有两种情况：1）等待超时；2）socket连接已不可用。
+bool tcpread(const int sockfd,string &buffer,const int itimeout=0);                            // 读取文本数据。
+bool tcpread(const int sockfd,void *buffer,const int ibuflen,const int itimeout=0);     // 读取二进制数据。
+
+// 向socket的对端发送数据。
+// sockfd：可用的socket连接。
+// buffer：待发送数据缓冲区的地址。
+// ibuflen：待发送数据的字节数。
+// 返回值：true-成功；false-失败，如果失败，表示socket连接已不可用。
+bool tcpwrite(const int sockfd,const string &buffer);                             // 写入文本数据。
+bool tcpwrite(const int sockfd,const void *buffer,const int ibuflen);      // 写入二进制数据。
+
+// 从已经准备好的socket中读取数据。
+// sockfd：已经准备好的socket连接。
+// buffer：存放数据的地址。
+// n：本次打算读取数据的字节数。
+// 返回值：成功接收到n字节的数据后返回true，socket连接不可用返回false。
+bool readn(const int sockfd,char *buffer,const size_t n);
+
+// 向已经准备好的socket中写入数据。
+// sockfd：已经准备好的socket连接。
+// buffer：待写入数据的地址。
+// n：待写入数据的字节数。
+// 返回值：成功写入完n字节的数据后返回true，socket连接不可用返回false。
+bool writen(const int sockfd,const char *buffer,const size_t n);
+
+// 以上是socket通讯的函数和类
+///////////////////////////////////// /////////////////////////////////////
