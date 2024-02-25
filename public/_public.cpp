@@ -838,3 +838,247 @@ double ctimer::elapsed()
 
     return dend-dstart;
 }
+
+bool newdir(const string &pathorfilename,bool bisfilename)
+{
+    // /tmp/aaa/bbb/ccc/ddd    /tmp    /tmp/aaa    /tmp/aaa/bbb    /tmp/aaa/bbb/ccc 
+     
+    // 检查目录是否存在，如果不存在，逐级创建子目录
+    int pos=1;          // 不要从0开始，0是根目录/。
+
+    while (true)
+    {
+        int pos1=pathorfilename.find('/',pos);  //以“/”为分隔符获取每级目录的位置
+        if (pos1==string::npos) break;          //没找到
+
+        string strpathname=pathorfilename.substr(0,pos1);      // 截取目录。
+
+        pos=pos1+1;       // 位置后移。
+        if (access(strpathname.c_str(),F_OK) != 0)  // 如果目录不存在，创建它。access用于测试文件或目录的访问权限  
+        {                                           // F_OK用于检查文件或目录是否存在的访问模式常量。返回0存在，-1不存在
+            // 0755是八进制，不要写成755。0表示八进制，7表示111拥有所有者的读、写、执行权限，5表示101组用户的读、执行，5其他用户读、执行
+            if (mkdir(strpathname.c_str(),0755) != 0) return false;  // 如果目录不存在，创建它。
+        }
+    }
+
+    // 如果pathorfilename不是文件，是目录，还需要创建最后一级子目录。
+    if (bisfilename==false)
+    {
+        if (access(pathorfilename.c_str(),F_OK) != 0)   //目录名如果不存在
+        {
+            if (mkdir(pathorfilename.c_str(),0755) != 0) return false;  //如果创建目录不成功
+        }
+    }
+
+    return true;
+}
+
+bool renamefile(const string &srcfilename,const string &dstfilename)
+{
+    // 如果原文件不存在，直接返回失败。                         // 应该是F_OK
+    if (access(srcfilename.c_str(),R_OK) != 0) return false; //R_OK读权限，W_OK写权限，X_OK执行权限，F_OK是否存在
+
+    // 创建目标文件的目录。
+    if (newdir(dstfilename,true) == false) return false;
+
+    // 调用操作系统的库函数rename重命名文件。 mv
+    if (rename(srcfilename.c_str(),dstfilename.c_str()) == 0) return true;
+
+    return false;
+}
+
+bool copyfile(const string &srcfilename,const string &dstfilename)
+{
+    // 创建目标文件的目录。
+    if (newdir(dstfilename,true) == false) return false;
+
+    cifile ifile;
+    cofile ofile;
+    int ifilesize=filesize(srcfilename);
+
+    int  total_bytes=0;
+    int  onread=0;
+    char buffer[5000];
+
+    if (ifile.open(srcfilename,ios::in|ios::binary)==false) return false;
+
+    if (ofile.open(dstfilename,ios::out|ios::binary)==false) return false;
+
+    while (true)
+    {
+        if ((ifilesize-total_bytes) > 5000) onread=5000;
+        else onread=ifilesize-total_bytes;
+
+        memset(buffer,0,sizeof(buffer));
+        ifile.read(buffer,onread);
+        ofile.write(buffer,onread);
+
+        total_bytes = total_bytes + onread;
+
+        if (total_bytes == ifilesize) break;
+    }
+
+    ifile.close();
+    ofile.closeandrename();
+
+    // 更改文件的修改时间属性
+    string strmtime;
+    filemtime(srcfilename,strmtime);
+    setmtime(dstfilename,strmtime);
+
+    return true;
+}
+
+int filesize(const string &filename)
+{
+    struct stat st_filestat;      // 存放文件信息的结构体。
+
+    // 获取文件信息，存放在结构体中。
+    if (stat(filename.c_str(),&st_filestat) < 0) return -1;//stat用于获取文件的状态信息，返回<0表示失败
+
+    return st_filestat.st_size;   // 返回结构体的文件大小成员。
+}
+
+bool filemtime(const string &filename,char *mtime,const string &fmt)
+{
+    struct stat st_filestat;      // 存放文件信息的结构体。
+
+    // 获取文件信息，存放在结构体中。
+    if (stat(filename.c_str(),&st_filestat) < 0) return false;
+
+    // 把整数表示的时间转换成字符串表示的时间。
+    timetostr(st_filestat.st_mtime,mtime,fmt);
+
+    return true;
+}
+
+bool filemtime(const string &filename,string &mtime,const string &fmt)
+{
+    struct stat st_filestat;      // 存放文件信息的结构体。
+
+    // 获取文件信息，存放在结构体中。
+    if (stat(filename.c_str(),&st_filestat) < 0) return false;
+
+    // 把整数表示的时间转换成字符串表示的时间。
+    timetostr(st_filestat.st_mtime,mtime,fmt);
+
+    return true;
+}
+
+bool setmtime(const string &filename,const string &mtime)
+{
+    struct utimbuf stutimbuf;
+
+    stutimbuf.actime=stutimbuf.modtime=strtotime(mtime);
+
+    if (utime(filename.c_str(),&stutimbuf)!=0) return false;
+
+    return true;
+}
+
+void cdir::setfmt(const string &fmt)
+{
+    m_fmt=fmt;
+}
+
+bool cdir::opendir(const string &dirname,const string &rules,const int maxfiles,const bool bandchild,bool bsort)
+{
+    m_filelist.clear();    // 清空文件列表容器。
+    m_pos=0;              // 从文件列表中已读取文件的位置归0。
+
+    // 如果目录不存在，创建它。
+    if (newdir(dirname,false) == false) return false;
+
+    // 打开目录，获取目录中的文件列表，存放在m_filelist容器中。
+    bool ret=_opendir(dirname,rules,maxfiles,bandchild);
+
+    if (bsort==true)    // 对文件列表排序。
+    {
+      sort(m_filelist.begin(), m_filelist.end());//范围内排序
+    }
+
+    return ret;
+}
+
+bool cdir::_opendir(const string &dirname,const string &rules,const int maxfiles,const bool bandchild)
+{
+    DIR *dir;   // 目录指针。
+
+    // 打开目录。
+    if ( (dir=::opendir(dirname.c_str())) == nullptr ) return false; // opendir与库函数重名，需要加::
+
+    string strffilename;            // 全路径的文件名。
+    struct dirent *stdir;            // 存放从目录中读取的内容。
+
+    // 用循环读取目录的内容，将得到目录中的文件名和子目录。
+    while ((stdir=::readdir(dir)) != 0) // readdir与库函数重名，需要加::
+    {
+        // 判断容器中的文件数量是否超出maxfiles参数。
+        if ( m_filelist.size()>=maxfiles ) break;
+
+        // 文件名以"."打头的文件不处理。.是当前目录，..是上一级目录，其它以.打头的都是特殊目录和文件。
+        if (stdir->d_name[0]=='.') continue;
+        
+        // 拼接全路径的文件名。
+        strffilename=dirname+'/'+stdir->d_name;  
+
+        // 如果是目录，处理各级子目录。
+        if (stdir->d_type==4)   //4表示目录项类型是目录
+        {
+            if (bandchild == true)      // 打开各级子目录。
+            {
+                if (_opendir(strffilename,rules,maxfiles,bandchild) == false)   // 递归调用_opendir函数。
+                {
+                    closedir(dir); return false;
+                }
+            }
+        }
+        
+        // 如果是普通文件，放入容器中。
+        if (stdir->d_type==8)//8表示目录项类型为文件
+        {
+            // 把能匹配上的文件放入m_filelist容器中。
+            if (matchstr(stdir->d_name,rules) == false) continue;
+
+            m_filelist.push_back(std::move(strffilename));
+        }
+    }
+
+    closedir(dir);   // 关闭目录。
+
+    return true;
+}
+
+bool cdir::readdir()
+{
+    // 如果已读完，清空容器
+    if (m_pos >= m_filelist.size()) 
+    {
+      m_pos=0; m_filelist.clear(); return false;
+    }
+
+    // 文件全名，包括路径
+    m_ffilename=m_filelist[m_pos];
+
+    // 从绝对路径的文件名中解析出目录名和文件名。
+    int pp=m_ffilename.find_last_of("/");
+    m_dirname=m_ffilename.substr(0,pp);
+    m_filename=m_ffilename.substr(pp+1);
+
+    // 获取文件的信息。
+    struct stat st_filestat;
+    stat(m_ffilename.c_str(),&st_filestat);
+    m_filesize=st_filestat.st_size;                                     // 文件大小。
+    m_mtime=timetostr1(st_filestat.st_mtime,m_fmt);   // 文件最后一次被修改的时间。
+    m_ctime=timetostr1(st_filestat.st_ctime,m_fmt);      // 文件生成的时间。
+    m_atime=timetostr1(st_filestat.st_atime,m_fmt);      // 文件最后一次被访问的时间。
+
+    m_pos++;       // 已读取文件的位置后移。
+
+    return true;
+}
+
+cdir::~cdir()
+{
+    m_filelist.clear();
+}
