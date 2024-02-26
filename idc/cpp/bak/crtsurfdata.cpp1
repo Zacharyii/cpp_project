@@ -1,0 +1,53 @@
+/*
+* 程序名：crtsurfdata.cpp 本程序用于生成气象站点观测的分钟数据
+* 作者：Rex
+*/
+#include "/project/public/_public.h"
+using namespace idc;
+
+clogfile logfile;//本程序运行的日志
+
+void EXIT(int sig);//程序退出和信号2ctrl+c、15killall crtsurfdata的处理函数
+
+int main(int argc,char *argv[])
+{
+    // 站点参数文件  生成的测试数据存放的目录 本程序运行的日志 输出数据文件的格式
+    if (argc!=4)
+    {
+        // 如果参数非法，给出帮助文档。
+        cout << "Using:./crtsurfdata inifile outpath logfile datafmt\n";
+        cout << "Examples:/project/idc/bin/crtsurfdata /project/idc/ini/stcode.ini /tmp/idc/surfdata /log/idc/crtsurfdata.log\n\n";
+
+        cout << "本程序用于生成气象站点观测的分钟数据，程序每分钟运行一次，由调度模块启动。\n";
+        cout << "inifile  气象站点参数文件名。\n";
+        cout << "outpath  气象站点数据文件存放的目录。\n";
+        cout << "logfile  本程序运行的日志文件名。\n";
+
+        return -1;  
+    }
+
+   //设置信号，在shell状态下可用“kill+进程号”正常终止进程。不要用“kill -9 +进程号”强行终止
+   closeioandsignal(true);
+   signal(SIGINT,EXIT);signal(SIGTERM,EXIT);
+
+   if(logfile.open(argv[3])==false) //如果打开日志文件失败
+   {
+      cout<<"logfile.open("<<argv[3]<<")failed.\n"; return -1;
+   }
+
+   logfile.write("crtsurfdata开始运行\n");
+
+   //处理业务的代码
+   sleep(100);
+
+   logfile.write("crtsurfdata运行结束\n");
+
+ return 0;
+}
+
+void EXIT(int sig)
+{
+   logfile.write("程序退出，sig=%d\n\n",sig);
+
+   exit(0);
+}
