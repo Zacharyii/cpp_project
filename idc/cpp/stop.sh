@@ -4,8 +4,8 @@
 killall -9 procctl
 
 #停止其他服务程序
-killall crtsurfdata deletefiles gzipfiles
+killall crtsurfdata deletefiles gzipfiles ftpgetfile ftpputfiles
 
 sleep 5
 
-killall -9 crtsurfdata deletefiles gzipfiles
+killall -9 crtsurfdata deletefiles gzipfiles ftpgetfile ftpputfiles
