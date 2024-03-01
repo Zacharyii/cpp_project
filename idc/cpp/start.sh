@@ -24,3 +24,15 @@
 
 # 清理/tmp/ftpputest目录中0.04天之前的文件。
 /project/tools/bin/procctl 300 /project/tools/bin/deletefiles /tmp/ftpputest "*" 0.04
+
+# 文件传输的服务端程序。
+/project/tools/bin/procctl 10 /project/tools/bin/fileserver 5005 /log/idc/fileserver.log
+
+# 把目录/tmp/ftpputest中的文件上传到/tmp/tcpputest目录中。
+/project/tools/bin/procctl 20 /project/tools/bin/tcpputfiles /log/idc/tcpputfiles_surfdata.log "<ip>127.0.0.1</ip><port>5005</port><ptype>1</ptype><clientpath>/tmp/ftpputest</clientpath><andchild>true</andchild><matchname>*.XML,*.CSV,*.JSON</matchname><srvpath>/tmp/tcpputest</srvpath><timetvl>10</timetvl><timeout>50</timeout><pname>tcpputfiles_surfdata</pname>"
+
+# 把目录/tmp/tcpputest中的文件下载到/tmp/tcpgetest目录中。
+/project/tools/bin/procctl 20 /project/tools/bin/tcpgetfiles /log/idc/tcpgetfiles_surfdata.log "<ip>127.0.0.1</ip><port>5005</port><ptype>1</ptype><srvpath>/tmp/tcpputest</srvpath><andchild>true</andchild><matchname>*.XML,*.CSV,*.JSON</matchname><clientpath>/tmp/tcpgetest</clientpath><timetvl>10</timetvl><timeout>50</timeout><pname>tcpgetfiles_surfdata</pname>"
+
+# 清理/tmp/tcpgetest目录中的历史数据文件。
+/project/tools/bin/procctl 300 /project/tools/bin/deletefiles /tmp/tcpgetest "*" 0.02
