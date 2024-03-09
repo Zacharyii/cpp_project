@@ -7,16 +7,23 @@ PUBCPP = /project/public/_public.cpp
 #编译参数。-g：使生成的可执行文件包含调试信息
 CFLAGS = -g
 
-all:crtsurfdata
+all:crtsurfdata obtcodetodb obtmindtodb
 
 #g++:-o指定输出的文件名为crtsurfdata。crtsurfdata.cpp是要编译的源文件名。
 #$(PUBINCL)开发框架头文件路径。$(PUBCPP)公共源文件路径。
 #-lm链接数学库。-lc链接C库
 #cp...:将生成的crtsurfdata强制复制到../bin/目录中
 crtsurfdata:crtsurfdata.cpp
-	g++ $(CFLAGS) -o crtsurfdata crtsurfdata.cpp $(PUBINCL) $(PUBCPP) -lm -lc
-	
+	g++ $(CFLAGS) -o crtsurfdata crtsurfdata.cpp $(PUBINCL) $(PUBCPP)
 	cp -f crtsurfdata ../bin/.	
 
+obtcodetodb:obtcodetodb.cpp
+	g++ $(CFLAGS) -o obtcodetodb obtcodetodb.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) 
+	cp obtcodetodb ../bin/.
+
+obtmindtodb:obtmindtodb.cpp idcapp.h idcapp.cpp
+	g++ $(CFLAGS) -o obtmindtodb obtmindtodb.cpp idcapp.cpp $(PUBINCL) $(PUBCPP) $(ORAINCL) $(ORALIB) $(ORALIBS) $(ORACPP) 
+	cp obtmindtodb ../bin/.
+
 clean:
-	rm -f crtsurfdata
+	rm -f crtsurfdata obtcodetodb obtmindtodb
