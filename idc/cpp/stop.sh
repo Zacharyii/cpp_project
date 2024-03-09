@@ -3,11 +3,13 @@
 #停止调度程序
 killall -9 procctl
 
-#停止其他服务程序
-killall crtsurfdata deletefiles gzipfiles ftpgetfile ftpputfiles
-killall fileserver tcpputfiles tcpgetfiles
+# 尝试让其它服务程序正常终止。
+killall crtsurfdata deletefiles gzipfiles ftpgetfiles ftpputfiles
+killall fileserver tcpputfiles tcpgetfiles obtcodetodb obtmindtodb
 
+# 让其它服务程序有足够的时间退出。
 sleep 5
 
-killall -9 crtsurfdata deletefiles gzipfiles ftpgetfile ftpputfiles
-killall -9 fileserver tcpputfiles tcpgetfiles
+# 不管服务程序有没有退出，都强制杀死。
+killall -9 crtsurfdata deletefiles gzipfiles ftpgetfiles ftpputfiles
+killall -9 fileserver tcpputfiles tcpgetfiles obtmindtodb
