@@ -276,10 +276,10 @@ ccmdstr::ccmdstr(const string &buffer,const string &sepstr,const bool bdelspace)
     splittocmd(buffer,sepstr,bdelspace);
 }
 
-// 把字符串拆分到m_cmdstr容器中。
+// 字符串拆分
 // buffer：待拆分的字符串。
-// sepstr：buffer字符串中字段内容的分隔符，注意，分隔符是字符串，如","、" "、"|"、"~!~"。
-// bdelspace：是否删除拆分后的字段内容前后的空格，true-删除；false-不删除，缺省不删除。
+// sepstr：分隔符，注意，分隔符是字符串，如","、" "、"|"、"~!~"。
+// bdelspace：是否删除拆分后的字段内容前后的空格，缺省不删除。
 void ccmdstr::splittocmd(const string &buffer,const string &sepstr,const bool bdelspace)
 {
     // 清除所有的旧数据
@@ -295,7 +295,7 @@ void ccmdstr::splittocmd(const string &buffer,const string &sepstr,const bool bd
 
         if (bdelspace == true) deletelrchr(substr);   // 删除子串前后的空格。
 
-        m_cmdstr.push_back(std::move(substr));     // 把子串放入m_cmdstr容器中，调用string类的移动构造函数。
+        m_cmdstr.push_back(std::move(substr));     // 把子串放入m_cmdstr容器中，调用string类的移动构造函数,把substr移动添加到m_cmdstr容器的末尾
 
         pos=pos1+sepstr.length();                           // 下次从buffer中查找分隔符的起始位置后移。
     }
@@ -310,14 +310,11 @@ void ccmdstr::splittocmd(const string &buffer,const string &sepstr,const bool bd
     return;
 }
 
+//获取字段内容
 bool ccmdstr::getvalue(const int ii,string &value,const int ilen) const
 {
     if (ii>=m_cmdstr.size()) return false;  //检查是否超出m_cmdstr容器大小
 
-    // 从xml中截取数据项的内容。
-    // 视频中是以下代码：
-    // value=m_cmdstr[ii];
-    // 改为：
     int itmplen=m_cmdstr[ii].length();
     if ( (ilen>0) && (ilen<itmplen) ) itmplen=ilen;
     value=m_cmdstr[ii].substr(0,itmplen);
@@ -454,7 +451,7 @@ bool ccmdstr::getvalue(const int ii,bool &value) const
     return true;
 }
 
-ccmdstr::~ccmdstr() //对析构函数的定义
+ccmdstr::~ccmdstr()
 {
     m_cmdstr.clear();
 }

@@ -67,18 +67,16 @@ bool matchstr(const string &str,const string &rules);
 ///////////////////////////////////// /////////////////////////////////////
 
 
-///////////////////////////////////// /////////////////////////////////////
 // ccmdstr类用于拆分有分隔符的字符串。
-// 字符串的格式为：字段内容1+分隔符+字段内容2+分隔符+字段内容3+分隔符+...+字段内容n。
-// 例如："messi,10,striker,30,1.72,68.5,Barcelona"，这是足球运动员梅西的资料。
-// 包括：姓名、球衣号码、场上位置、年龄、身高、体重和效力的俱乐部，字段之间用半角的逗号分隔。
+///////////////////////////////////// /////////////////////////////////////
+// 字符串的格式为：内容1+分隔符+内容2+分隔符+...+字段内容n。
 class ccmdstr
 {
 private:
     vector<string> m_cmdstr;  // 存放拆分后的字段内容。
-
-    ccmdstr(const ccmdstr &) = delete;                      // 禁用拷贝构造函数。
-    ccmdstr &operator=(const ccmdstr &) = delete;  // 赋值函数=delete：禁用。
+    // 赋值函数=delete：禁用。确保 ccmdstr 对象不能被复制或赋值
+    ccmdstr(const ccmdstr &) = delete;              // 禁用拷贝构造函数,表示无法通过拷贝构造函数创建ccmdstr对象的副本。
+    ccmdstr &operator=(const ccmdstr &) = delete;   //禁用赋值运算符重载函数,表示无法使用赋值运算符赋值
 public:
     ccmdstr()  { } // 构造函数。
     ccmdstr(const string &buffer,const string &sepstr,const bool bdelspace=false);
@@ -90,8 +88,8 @@ public:
 
     // 把字符串拆分到m_cmdstr容器中。
     // buffer：待拆分的字符串。
-    // sepstr：buffer中采用的分隔符，注意，sepstr参数的数据类型不是字符，是字符串，如","、" "、"|"、"~!~"。
-    // bdelspace：拆分后是否删除字段内容前后的空格，true-删除；false-不删除，缺省不删除。
+    // sepstr：分隔符，注意，sepstr参数的数据类型不是字符，是字符串，如","、" "、"|"、"~!~"。
+    // bdelspace：拆分后是否删除字段前后的空格，缺省不删除。
     void splittocmd(const string &buffer,const string &sepstr,const bool bdelspace=false);
 
     // 获取拆分后字段的个数，即m_cmdstr容器的大小。
@@ -103,15 +101,15 @@ public:
     // value：传入变量的地址，用于存放字段内容。
     // ilen：截取字段的长度
     // 返回值：true-成功；如果ii的取值超出了m_cmdstr容器的大小，返回失败。
-    bool getvalue(const int ii,string &value,const int ilen=0) const;      // C++风格字符串。视频中没有第三个参数，加上第三个参数更好。
-    bool getvalue(const int ii,char *value,const int ilen=0) const;          // C风格字符串，ilen缺省值为0-全部长度。 
-    bool getvalue(const int ii,int  &value) const;                                    // int整数。
-    bool getvalue(const int ii,unsigned int &value) const;                     // unsigned int整数。
-    bool getvalue(const int ii,long &value) const;                                  // long整数。
-    bool getvalue(const int ii,unsigned long &value) const;                  // unsigned long整数。
-    bool getvalue(const int ii,double &value) const;                              // 双精度double。
-    bool getvalue(const int ii,float &value) const;                                  // 单精度float。
-    bool getvalue(const int ii,bool &value) const;                                  // bool型。
+    bool getvalue(const int ii,string &value,const int ilen=0) const;      // C++风格字符串。
+    bool getvalue(const int ii,char *value,const int ilen=0) const;        // C风格字符串，ilen缺省值为0-全部长度。 
+    bool getvalue(const int ii,int  &value) const;                         // int整数。
+    bool getvalue(const int ii,unsigned int &value) const;                 // unsigned int整数。
+    bool getvalue(const int ii,long &value) const;                         // long整数。
+    bool getvalue(const int ii,unsigned long &value) const;                // unsigned long整数。
+    bool getvalue(const int ii,double &value) const;                       // 双精度double。
+    bool getvalue(const int ii,float &value) const;                        // 单精度float。
+    bool getvalue(const int ii,bool &value) const;                         // bool型。
 
     ~ccmdstr(); // 析构函数。
 };
@@ -119,6 +117,7 @@ public:
 // 重载<<运算符，输出ccmdstr::m_cmdstr中的内容，方便调试。
 ostream& operator<<(ostream& out, const ccmdstr& cc);
 ///////////////////////////////////// /////////////////////////////////////
+
 
 ///////////////////////////////////// /////////////////////////////////////
 // 解析xml格式字符串的函数族。
