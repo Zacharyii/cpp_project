@@ -142,33 +142,39 @@ bool getxmlbuffer(const string &xmlbuffer,const string &fieldname,double &value)
 bool getxmlbuffer(const string &xmlbuffer,const string &fieldname,float &value);
 /////// ////////////////////////////// /////////////////////////////////////
 
+
+///////////////////////////////////// /////////////////////////////////////
 // C++格式化输出函数模板。
 template< typename... Args >    //模板声明。Args 是一个模板参数包，可以接受零个或多个类型参数。
 bool sformat(string &str,const char* fmt, Args... args ) 
 {
-    int len = snprintf( nullptr, 0, fmt, args... );      // 得到格式化输出后字符串的总长度。
+    int len = snprintf( nullptr, 0, fmt, args... );      // snprintf()得到格式化输出后字符串的总长度。
                                                          //snprintf(目标缓冲区的指针,目标缓冲区的大小,格式化字符串,要格式化的数据)
-    if (len < 0) return false;                                  // 如果调用snprintf失败，返回-1。
-    if (len == 0) { str.clear(); return true; }            // 如果调用snprintf返回0，表示格式化输出的内容为空。
+    if (len < 0) return false;                           // 如果调用snprintf失败，返回-1。
+    if (len == 0) { str.clear(); return true; }          // 如果调用snprintf返回0，表示格式化输出的内容为空。
 
-    str.resize(len);                                                 // 为string分配内存。
+    str.resize(len);                                     // 为string分配内存。
     snprintf(&str[0], len + 1, fmt, args... );           // linux平台第二个参数是len+1，windows平台是len。
     return true;
 }
 
-template< typename... Args >    //C++格式化输出重载版本模板
+//C++格式化输出重载版本模板
+template< typename... Args >    
 string sformat(const char* fmt, Args... args )  
 {
     string str;
 
     int len = snprintf( nullptr, 0, fmt, args... );      // 得到格式化后字符串的长度。args...参数包展开语法
-    if (len < 0) return str;              // 如果调用snprintf失败，返回-1。
-    if (len == 0) return str;           // 如果调用snprintf返回0，表示格式化输出的内容为空。;
+    if (len < 0) return str;                             // 如果调用snprintf失败，返回-1。
+    if (len == 0) return str;                            // 如果调用snprintf返回0，表示格式化输出的内容为空。
 
-    str.resize(len);                                                // 为string分配内存。
-    snprintf(&str[0], len + 1, fmt, args... );          // linux平台第二个参数是len+1，windows平台是len。
+    str.resize(len);                                     // 为string分配内存。
+    snprintf(&str[0], len + 1, fmt, args... );           // linux平台第二个参数是len+1，windows平台是len。
     return str;
 }
+///////////////////////////////////// /////////////////////////////////////
+
+
 
 ///////////////////////////////////// /////////////////////////////////////
 // 时间操作的若干函数。
