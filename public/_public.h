@@ -1,75 +1,71 @@
-/****************************************************************************************/
-/*   程序名：_public.h，此程序是公共函数和类的声明文件。                                            */                                                                                                           */
-/****************************************************************************************/
+/*   程序名：_public.h，此程序是公共函数和类的声明文件。       
+                                     */                                                                                                      */
 #ifndef __PUBLIC_HH
 #define __PUBLIC_HH 1
 
-#include "_cmpublic.h"    // C/C++、Linux编程常用的头文件，新的头文件请在_cmpublic.h中添加。
+#include "_cmpublic.h"    // C/C++、Linux编程常用的头文件，新的头文件在_cmpublic.h中添加。
 
 using namespace std;
 
 namespace idc
 {
 
+// C++字符串操作
 ///////////////////////////////////// /////////////////////////////////////
-// C++风格字符串操作的若干函数。
 // 删除字符串左边指定的字符。
 // str：待处理的字符串。
 // cc：需要删除的字符，缺省删除空格。
-char*     deletelchr(char* str, const int cc=' ');  //c
-string& deletelchr(string &str, const int cc=' ');  //c++
+char*     deletelchr(char* str, const int cc=' ');
+string& deletelchr(string &str, const int cc=' ');
 
-// 删除字符串右边指定的字符。
-// str：待处理的字符串。
-// cc：需要删除的字符，缺省删除空格。
-char*     deleterchr(char *str,const int cc=' ');   //c
-string& deleterchr(string &str,const int cc=' ');   //c++
+// 删右
+char*     deleterchr(char *str,const int cc=' ');
+string& deleterchr(string &str,const int cc=' ');
 
-// 删除字符串左右两边指定的字符。
-// str：待处理的字符串。
-// chr：需要删除的字符，缺省删除空格。
+// 删左右
 char*     deletelrchr(char *str,const int cc=' ');
-string& deletelrchr(string &str,const int cc=' ');   //c++
+string& deletelrchr(string &str,const int cc=' ');
 
-// 把字符串中的小写字母转换成大写，忽略不是字母的字符。
+// 小写转大写
 // str：待转换的字符串。
 char*     toupper(char *str);
-string& toupper(string &str);   //c++
+string& toupper(string &str);
 
-// 把字符串中的大写字母转换成小写，忽略不是字母的字符。
+// 大写转小写
 // str：待转换的字符串。
 char*     tolower(char *str);
-string& tolower(string &str);   //c++
+string& tolower(string &str);
 
 // 字符串替换函数。
-// 在字符串str中，如果存在字符串str1，就替换为字符串str2。
+// 在str中，把str1替换为str2。
 // str：待处理的字符串。
 // str1：旧的内容。
 // str2：新的内容。
 // bloop：是否循环执行替换。
 // 注意：
-// 1、如果str2比str1要长，替换后str会变长，所以必须保证str有足够的空间，否则内存会溢出（C++风格字符串不存在这个问题）。
-// 2、如果str2中包含了str1的内容，且bloop为true，这种做法存在逻辑错误，replacestr将什么也不做。
-// 3、如果str2为空，表示删除str中str1的内容。
-bool replacestr(char *str   ,const string &str1,const string &str2,const bool bloop=false);
+// 1、str2比str1长，替换后str变长，必须保证str有足够的空间，否则内存溢出（C++风格字符串不存在这个问题）。
+// 2、str2中有str1，且bloop为true，逻辑错误(死循环)，replacestr()将什么也不做。
+// 3、str2为空，表示删除str中的str1。
+bool replacestr(char *str  ,const string &str1,const string &str2,const bool bloop=false);
 bool replacestr(string &str,const string &str1,const string &str2,const bool bloop=false);
 
 // 从一个字符串中提取出数字、符号和小数点，存放到另一个字符串中。
 // src：原字符串。
 // dest：目标字符串。
-// bsigned：是否提取符号（+和-），true-包括；false-不包括。
-// bdot：是否提取小数点（.），true-包括；false-不包括。
+// bsigned：是否提取符号（+和-）。
+// bdot：是否提取小数点（.）。
 // 注意：src和dest可以是同一个变量。
 char*     picknumber(const string &src,char *dest,const bool bsigned=false,const bool bdot=false);
-string& picknumber(const string &src,string &dest,const bool bsigned=false,const bool bdot=false);   //c++
-string    picknumber(const string &src,           const bool bsigned=false,const bool bdot=false); //  没有目标字符串参数
+string& picknumber(const string &src,string &dest,const bool bsigned=false,const bool bdot=false);
+string    picknumber(const string &src,const bool bsigned=false,const bool bdot=false);
 
 // 正则表达式，判断一个字符串是否匹配另一个字符串。
-// str：需要判断的字符串，是精确表示的，如文件名"_public.cpp"。
+// str：需要判断的字符串，如文件名"_public.cpp"。
 // rules：匹配规则的表达式，用星号"*"代表任意字符，多个表达式之间用半角的逗号分隔，如"*.h,*.cpp"。
-// 注意：1）str参数不需要支持"*"，rules参数支持"*"；2）函数在判断str是否匹配rules的时候，会忽略字母的大小写。
+// 注意：1）str不支持"*"，rules支持"*"；2）判断str是否匹配rules时，忽略大小写。
 bool matchstr(const string &str,const string &rules);
 ///////////////////////////////////// /////////////////////////////////////
+
 
 ///////////////////////////////////// /////////////////////////////////////
 // ccmdstr类用于拆分有分隔符的字符串。

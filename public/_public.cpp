@@ -1,34 +1,34 @@
-/*****************************************************************************************/
-/*   程序名：_public.cpp，此程序是公共函数和类的定义文件。                       */                                                                     */
-/*****************************************************************************************/
+/*   程序名：_public.cpp，此程序是公共函数和类的定义文件。                       */                                                                      */
 
 #include "_public.h"  
 
 namespace idc
 {
-
-char *deletelchr(char* str, const int cc)
+//删左
+char* deletelchr(char* str, const int cc)
 {
     if (str == nullptr) return nullptr;		// 如果传进来的是空地址，直接返回，防止程序崩溃。
 	
     char* p = str;				   // 指向字符串的首地址。
-    while (*p == cc)			// 遍历字符串，p将指向左边第一个不是cc的字符。
+    while (*p == cc)			// 遍历字符串，将指针 p 移动到第一个不等于 cc 的字符位置。
         p++;		
 
-    memmove(str, p, strlen(str) - (p - str)+1);  // 把结尾标志0也拷过来。
+    memmove(str, p, strlen(str) - (p-str)+1);  //将从指针p开始的剩余字符串（包括结尾的空字符'\0'）复制到str起始位置
+                                                 //，从而实现删除字符的操作。(p-str)表示两个指针之间的偏移量。
 
     return str;
 }
 
 string& deletelchr(string &str, const int cc)   //c++
 {
-    auto pos=str.find_first_not_of(cc);    // 从字符串的左边查找第一个不是cc的字符的位置。
+    auto pos=str.find_first_not_of(cc);    // 查找第一个不是cc的字符的位置。
 
     if (pos!= 0) str.replace(0,pos,"");       // 把0-pos之间的字符串替换成空(不是空格)。
 
     return str;
 }
 
+//删右
 char* deleterchr(char *str,const int cc)
 {
     if (str == nullptr) return nullptr;	// 如果传进来的是空地址，直接返回，防止程序崩溃。
@@ -57,6 +57,7 @@ string& deleterchr(string &str,const int cc)   //c++
     return str;
 }
 
+//删左右
 char* deletelrchr(char *str,const int cc)
 {
     deletelchr(str,cc);
@@ -73,6 +74,7 @@ string& deletelrchr(string &str,const int cc)   //c++
     return str;
 }
 
+//转大写
 char* toupper(char *str)
 {
     if (str == nullptr) return nullptr;
@@ -87,16 +89,17 @@ char* toupper(char *str)
     return str;
 }
 
-string& toupper(string &str)   //c++    -32转大写
+string& toupper(string &str)   //c++    
 {
     for (auto &cc:str)  //遍历字符串str，将当前字符引用赋值给cc
     {
-        if ( (cc >= 'a') && (cc <= 'z') ) cc=cc - 32;
+        if ( (cc >= 'a') && (cc <= 'z') ) cc=cc - 32;   //-32转大写
     }
 
     return str;
 }
 
+//转小写
 char* tolower(char *str)
 {
     if (str == nullptr) return nullptr;
@@ -111,23 +114,24 @@ char* tolower(char *str)
     return str;
 }
 
-string& tolower(string &str)   //c++    +32转小写
+string& tolower(string &str)   //c++    
 {
     for (auto &cc:str)
     {
-        if ( (cc >= 'A') && (cc <= 'Z') ) cc=cc + 32;
+        if ( (cc >= 'A') && (cc <= 'Z') ) cc=cc + 32;   //+32转小写
     }
 
     return str;
 }
 
+//字符串替换
 bool replacestr(string &str,const string &str1,const string &str2,bool bloop)   //c++
 {
     // 如果原字符串str或旧的内容str1为空，没有意义，不执行替换。
     if ( (str.length() == 0) || (str1.length() == 0) ) return false;
   
     // 如果bloop为true并且str2中包函了str1的内容，直接返回，因为会进入死循环，最终导致内存溢出。
-    //string::npos和find()连用，找到了返回str1位置（不等）条件成立，没找到返回std::string::npos条件为假。
+    //string::npos和find()连用：找到了返回str1位置（不等于npos），没找到返回std::string::npos。
     if ( (bloop==true) && (str2.find(str1)!=string::npos) ) return false;   
                                         
     int pstart=0;      // 如果bloop==false，下一次执行替换的开始位置。
@@ -136,13 +140,13 @@ bool replacestr(string &str,const string &str1,const string &str2,bool bloop)   
     while (true)
     {
         if (bloop == true)
-            ppos=str.find(str1);                      // 每次从字符串的最左边开始查找子串str1。
+            ppos=str.find(str1);                      // 从最左边开始查找str1。
         else
-            ppos=str.find(str1,pstart);            // 从上次执行替换的位置后开始查找子串str1。
+            ppos=str.find(str1,pstart);            // 从上次替换位置后开始查找str1。
 
         if (ppos == string::npos) break;       // 如果没有找到子串str1。
 
-        str.replace(ppos,str1.length(),str2);   // 把str1替换成str2。第二个参数是要替换的子字符串的长度
+        str.replace(ppos,str1.length(),str2);   // 从ppos开始，把str1替换成str2。第二个参数是要替换的子字符串的长度
 
         if (bloop == false) pstart=ppos+str2.length();    // 下一次执行替换的开始位置往右移动。
     }
@@ -164,12 +168,13 @@ bool replacestr(char *str,const string &str1,const string &str2,bool bloop)
     return true;
 }
 
+//提取数字、符号和小数点
 char* picknumber(const string &src,char *dest,const bool bsigned,const bool bdot)
 {
     if (dest==nullptr) return nullptr;    // 判断空指针。
 
     string strtemp=picknumber(src,bsigned,bdot);
-    strtemp.copy(dest,strtemp.length());
+    strtemp.copy(dest,strtemp.length());//将 strtemp 中的字符复制到目标字符指针 dest 所指向的位置
     dest[strtemp.length()]=0;    // string的copy函数不会给C风格字符串的结尾加0。
 
     return dest;
@@ -210,6 +215,7 @@ string picknumber(const string &src,const bool bsigned,const bool bdot) //c++，
     return dest;
 }
 
+//判断字符串是否匹配
 bool matchstr(const string &str,const string &rules)
 {
     // 如果匹配规则表达式的内容是空的，返回false。
@@ -229,6 +235,7 @@ bool matchstr(const string &str,const string &rules)
     toupper(filename);
     toupper(matchstr);
 
+    // 字符串拆分,拆分结果存储在 cmdstr 中。
     cmdstr.splittocmd(matchstr,",");
 
     for (ii=0;ii<cmdstr.size();ii++)
@@ -241,14 +248,15 @@ bool matchstr(const string &str,const string &rules)
 
         for (jj=0;jj<cmdsubstr.size();jj++)
         {
-            // 如果是文件名的首部
+            // 如果是文件名的首部,且filename的前部与cmdsubstr[jj]不匹配，则跳出内层循环。
             if (jj == 0)
                 if (filename.substr(0,cmdsubstr[jj].length())!=cmdsubstr[jj]) break;
 
-            // 如果是文件名的尾部
+            // 如果是文件名的尾部，且filename从后往前搜索未找到匹配的子字符串，则跳出内层循环。
             if (jj == cmdsubstr.size()-1)
                 if (filename.find(cmdsubstr[jj],filename.length()-cmdsubstr[jj].length()) == string::npos) break;
 
+            //在 filename 中从位置 pos1 开始查找子字符串 cmdsubstr[jj] 的出现位置
             pos2=filename.find(cmdsubstr[jj],pos1);
 
             if (pos2 == string::npos) break;
@@ -256,6 +264,7 @@ bool matchstr(const string &str,const string &rules)
             pos1=pos2+cmdsubstr[jj].length();
         }
 
+        //如果内层循环完整执行完毕，表示所有子字符串都成功匹配，
         if (jj==cmdsubstr.size()) return true;
     }
 
