@@ -456,6 +456,7 @@ ccmdstr::~ccmdstr()
     m_cmdstr.clear();
 }
 
+//以 "[索引]=" 的形式输出，后跟元素的值，最后加上换行符 endl
 ostream& operator<<(ostream& out, const ccmdstr& cmdstr)
 {
     for (int ii=0;ii<cmdstr.size();ii++)
@@ -464,6 +465,7 @@ ostream& operator<<(ostream& out, const ccmdstr& cmdstr)
     return out;
 }
 
+//解析xml格式字符串
 bool getxmlbuffer(const string &xmlbuffer,const string &fieldname,string  &value,const int ilen)
 {
     string start="<"+fieldname+">";            // 数据项开始的标签。
@@ -475,13 +477,9 @@ bool getxmlbuffer(const string &xmlbuffer,const string &fieldname,string  &value
     int endp=xmlbuffer.find(end);                 // 在xml中查找数据项结束的标签的位置。
     if (endp==string::npos) return false;         //没找到
 
-    // 从xml中截取数据项的内容。
-    // 视频中是以下代码：
-    // value=xmlbuffer.substr(startp+start.length(),endp-startp-start.length());
-    // 改为：
-    int itmplen=endp-startp-start.length();
-    if ( (ilen>0) && (ilen<itmplen) ) itmplen=ilen;
-    value=xmlbuffer.substr(startp+start.length(),itmplen);
+    int itmplen=endp-startp-start.length();         //数据项值的预估长度
+    if ( (ilen>0) && (ilen<itmplen) ) itmplen=ilen; //确保提取的数据项值不超过指定的最大长度
+    value=xmlbuffer.substr(startp+start.length(),itmplen);//提取数据项值
 
     return true;
 }
@@ -490,7 +488,7 @@ bool getxmlbuffer(const string &xmlbuffer,const string &fieldname,char *value,co
 {
     if (value==nullptr) return false;
 
-    if (len>0) memset(value,0,len+1);   // 调用者必须保证value的空间足够，否则这里会内存溢出。
+    if (len>0) memset(value,0,len+1);   // 将 value 的内存空间填充为0
 
     string str;
     getxmlbuffer(xmlbuffer,fieldname,str);
