@@ -850,6 +850,7 @@ bool addtime(const string &in_stime,char *out_stime,const int timetvl,const stri
     return true;
 }
 
+//计时器
 ctimer::ctimer()
 {
     start();   // 计时开始。
@@ -858,6 +859,7 @@ ctimer::ctimer()
 // 计时开始。
 void ctimer::start()
 {
+    //清零 m_start 和 m_end 对象的内存
     memset(&m_start,0,sizeof(struct timeval));
     memset(&m_end,0,sizeof(struct timeval));
 
