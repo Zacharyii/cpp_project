@@ -628,16 +628,16 @@ bool getxmlbuffer(const string &xmlbuffer,const string &fieldname,float &value)
     return true;
 }
 
-// 把整数表示的时间转换为字符串表示的时间。
+// 把整数时间转换为字符串时间。
 // ttime：整数表示的时间。
 // strtime：字符串表示的时间。
 // fmt：输出字符串时间strtime的格式，与ttime函数的fmt参数相同，如果fmt的格式不正确，strtime将为空。
 string& timetostr(const time_t ttime,string &strtime,const string &fmt)
 {
-    //struct tm sttm = *localtime ( &ttime );       // localtime非线程安全,返回指向静态内存区域的指针。
-    struct tm sttm; localtime_r (&ttime,&sttm);     // localtime_r线程安全,输出指向struct tm结构体的指针
-    sttm.tm_year=sttm.tm_year+1900;                 // tm.tm_year成员要加上1900。
-    sttm.tm_mon++;                                  // sttm.tm_mon成员是从0开始的，要加1。
+    //struct tm sttm = *localtime ( &ttime );        // 非线程安全。
+    struct tm sttm; localtime_r (&ttime,&sttm);   // 线程安全。localtime_r是一个线程安全的函数，将时间戳（time_t 类型）转换为本地时间
+    sttm.tm_year=sttm.tm_year+1900;                // tm.tm_year成员要加上1900。
+    sttm.tm_mon++;                                            // sttm.tm_mon成员是从0开始的，要加1。
 
     // 缺省的时间格式。
     if ( (fmt=="") || (fmt=="yyyy-mm-dd hh24:mi:ss") )
@@ -744,6 +744,7 @@ string timetostr1(const time_t ttime,const string &fmt)
     return str;
 }
 
+//取操作系统的时间
 string& ltime(string &strtime,const string &fmt,const int timetvl)
 {
     time_t  timer;
@@ -777,6 +778,44 @@ string ltime1(const string &fmt,const int timetvl)
     ltime(strtime,fmt,timetvl);   // 直接调用string& ltime(string &strtime,const string &fmt="",const int timetvl=0);
 
     return strtime;
+}
+
+time_t strtotime(const string &strtime)
+{
+    string strtmp,yyyy,mm,dd,hh,mi,ss;
+
+    picknumber(strtime,strtmp,false,false);    // 把字符串中的数字全部提取出来。
+    // 2023-12-05 08:30:45
+    // 2023/12/05 08:30:45
+    // 20231205083045
+
+    if (strtmp.length() != 14) return -1;           // 如果时间格式不是yyyymmddhh24miss，说明时间格式不正确。
+
+    yyyy=strtmp.substr(0,4);
+    mm=strtmp.substr(4,2);
+    dd=strtmp.substr(6,2);
+    hh=strtmp.substr(8,2);
+    mi=strtmp.substr(10,2);
+    ss=strtmp.substr(12,2);
+
+    struct tm sttm;
+
+    try
+    {
+        sttm.tm_year = stoi(yyyy) - 1900;
+        sttm.tm_mon = stoi(mm) - 1;
+        sttm.tm_mday = stoi(dd);
+        sttm.tm_hour = stoi(hh);
+        sttm.tm_min = stoi(mi);
+        sttm.tm_sec = stoi(ss);
+        sttm.tm_isdst = 0;
+    }
+    catch(const std::exception& e)
+    {
+        return -1;
+    }
+
+    return mktime(&sttm);
 }
 
 bool addtime(const string &in_stime,string &out_stime,const int timetvl,const string &fmt)
