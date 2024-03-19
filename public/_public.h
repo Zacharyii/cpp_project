@@ -296,8 +296,8 @@ bool setmtime(const string &filename,const string &mtime);
 ///////////////////////////////////// /////////////////////////////////////
 
 
-///////////////////////////////////// /////////////////////////////////////
 // 获取某目录及其子目录中的文件列表的类。
+///////////////////////////////////// /////////////////////////////////////
 class cdir
 {
 private:
@@ -308,11 +308,10 @@ private:
     cdir(const cdir &) = delete;                      // 禁用拷贝构造函数。
     cdir &operator=(const cdir &) = delete;  // 禁用赋值函数。
 public:
-    // /project/public/_public.h
     string m_dirname;        // 目录名，例如：/project/public
     string m_filename;       // 文件名，不包括目录名，例如：_public.h
     string m_ffilename;      // 绝对路径的文件，例如：/project/public/_public.h
-    int      m_filesize;          // 文件的大小，单位：字节。
+    int    m_filesize;          // 文件的大小，单位：字节。
     string m_mtime;           // 文件最后一次被修改的时间，即stat结构体的st_mtime成员。
     string m_ctime;            // 文件生成的时间，即stat结构体的st_ctime成员。
     string m_atime;            // 文件最后一次被访问的时间，即stat结构体的st_atime成员。
@@ -346,6 +345,7 @@ public:
     ~cdir();  // 析构函数。
 };
 ///////////////////////////////////// /////////////////////////////////////
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // 写文件的类。

@@ -1030,6 +1030,13 @@ void cdir::setfmt(const string &fmt)
     m_fmt=fmt;
 }
 
+// 设置文件时间的格式
+void cdir::setfmt(const string &fmt)
+{
+    m_fmt=fmt;
+}
+
+// 打开目录，获取目录中文件的列表
 bool cdir::opendir(const string &dirname,const string &rules,const int maxfiles,const bool bandchild,bool bsort)
 {
     m_filelist.clear();    // 清空文件列表容器。
@@ -1043,12 +1050,13 @@ bool cdir::opendir(const string &dirname,const string &rules,const int maxfiles,
 
     if (bsort==true)    // 对文件列表排序。
     {
-      sort(m_filelist.begin(), m_filelist.end());//范围内排序
+      sort(m_filelist.begin(), m_filelist.end());
     }
 
     return ret;
 }
 
+// 这是一个递归函数，在opendir()中调用，cdir类的外部不需要调用它。
 bool cdir::_opendir(const string &dirname,const string &rules,const int maxfiles,const bool bandchild)
 {
     DIR *dir;   // 目录指针。
@@ -1072,7 +1080,7 @@ bool cdir::_opendir(const string &dirname,const string &rules,const int maxfiles
         strffilename=dirname+'/'+stdir->d_name;  
 
         // 如果是目录，处理各级子目录。
-        if (stdir->d_type==4)   //4表示目录项类型是目录
+        if (stdir->d_type==4)
         {
             if (bandchild == true)      // 打开各级子目录。
             {
@@ -1084,7 +1092,7 @@ bool cdir::_opendir(const string &dirname,const string &rules,const int maxfiles
         }
         
         // 如果是普通文件，放入容器中。
-        if (stdir->d_type==8)//8表示目录项类型为文件
+        if (stdir->d_type==8)
         {
             // 把能匹配上的文件放入m_filelist容器中。
             if (matchstr(stdir->d_name,rules) == false) continue;
@@ -1098,6 +1106,7 @@ bool cdir::_opendir(const string &dirname,const string &rules,const int maxfiles
     return true;
 }
 
+//获取该文件的大小、修改时间
 bool cdir::readdir()
 {
     // 如果已读完，清空容器
@@ -1127,6 +1136,7 @@ bool cdir::readdir()
     return true;
 }
 
+// 析构函数
 cdir::~cdir()
 {
     m_filelist.clear();
