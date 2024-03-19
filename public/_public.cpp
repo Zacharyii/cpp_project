@@ -1547,20 +1547,84 @@ ctcpclient::~ctcpclient()
     close();
 }
 
+// 服务端初始化
+bool ctcpserver::initserver(const unsigned int port,const int backlog)
+{
+    // 如果服务端的socket>0，关掉。
+    if (m_listenfd > 0) { ::close(m_listenfd); m_listenfd=-1; }
+
+    if ( (m_listenfd = socket(AF_INET,SOCK_STREAM,0))<=0) return false;
+
+    // 忽略SIGPIPE信号，防止程序异常退出。
+    // 如果往已关闭的socket继续写数据，会产生SIGPIPE信号，它的缺省行为是终止程序，所以要忽略它。
+    signal(SIGPIPE,SIG_IGN);   
+
+    // 打开SO_REUSEADDR选项，当服务端连接处于TIME_WAIT状态时可以再次启动服务器，
+    // 否则bind()可能会不成功，报：Address already in use。
+    int opt = 1; 
+    //setsockopt(要设置选项的socket文件描述符,选项所属的协议层或级别,选项的名称,指向包含选项值的缓冲区的指针,选项值的长度)
+    setsockopt(m_listenfd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt)); 
+
+    memset(&m_servaddr,0,sizeof(m_servaddr));
+    m_servaddr.sin_family = AF_INET;                //地址族
+    m_servaddr.sin_addr.s_addr = htonl(INADDR_ANY);   // 任意ip地址。
+    m_servaddr.sin_port = htons(port);                  //端口
+    //在 socket 上绑定地址和开始监听连接
+    if (bind(m_listenfd,(struct sockaddr *)&m_servaddr,sizeof(m_servaddr)) != 0 )
+    {
+        closelisten(); return false;
+    }
+
+    if (listen(m_listenfd,backlog) != 0 )
+    {
+        closelisten(); return false;
+    }
+
+    return true;
+}
+
+// 关闭监听的socket
+void ctcpserver::closelisten()
+{
+    if (m_listenfd >= 0)
+    {
+        ::close(m_listenfd); m_listenfd=-1;
+    }
+}
+
+// 关闭客户端的socket
+void ctcpserver::closeclient()
+{
+    if (m_connfd >= 0)
+    {
+        ::close(m_connfd); m_connfd=-1; 
+    }
+}
+
+// 从已连接队列中获取一个客户端连接
 bool ctcpserver::accept()
 {
     if (m_listenfd==-1) return false;
 
     int m_socklen = sizeof(struct sockaddr_in);
-    if ((m_connfd=::accept(m_listenfd,(struct sockaddr *)&m_clientaddr,(socklen_t*)&m_socklen)) < 0)//(socklen_t*)&m_socklen)是指向客户端地址结构体大小的指针
+    if ((m_connfd=::accept(m_listenfd,(struct sockaddr *)&m_clientaddr,(socklen_t*)&m_socklen)) < 0)
         return false;
 
     return true;
 }
 
+// 获取客户端的ip地址
 char *ctcpserver::getip()
 {
-    return(inet_ntoa(m_clientaddr.sin_addr));//inet_ntoa()用于将网络字节序的IPv4地址转换为点分十进制表示的字符串
+    return(inet_ntoa(m_clientaddr.sin_addr));//将 IPv4 地址（32 位无符号整数）转换为点分十进制的 IP 地址字符串
+}
+
+// 接收对端发送过来的数据
+bool ctcpserver::read(void *buffer,const int ibuflen,const int itimeout)   // 接收二进制数据。
+{
+    if (m_connfd==-1) return false;
+
+    return(tcpread(m_connfd,buffer,ibuflen,itimeout));
 }
 
 bool ctcpserver::read(string &buffer,const int itimeout)  // 接收文本数据。
@@ -1570,11 +1634,12 @@ bool ctcpserver::read(string &buffer,const int itimeout)  // 接收文本数据�
     return(tcpread(m_connfd,buffer,itimeout));
 }
 
-bool ctcpclient::read(void *buffer,const int ibuflen,const int itimeout)   // 接收二进制数据。
+// 向对端发送数据
+bool ctcpserver::write(const void *buffer,const int ibuflen)  // 发送二进制数据。
 {
     if (m_connfd==-1) return false;
 
-    return(tcpread(m_connfd,buffer,ibuflen,itimeout));
+    return(tcpwrite(m_connfd,(char*)buffer,ibuflen));
 }
 
 bool ctcpserver::write(const string &buffer)
@@ -1584,183 +1649,10 @@ bool ctcpserver::write(const string &buffer)
     return(tcpwrite(m_connfd,buffer));
 }
 
-bool ctcpclient::write(const void *buffer,const int ibuflen)
+// 析构函数
+ctcpserver::~ctcpserver()
 {
-    if (m_connfd==-1) return false;
-
-    return(tcpwrite(m_connfd,(char*)buffer,ibuflen));
-}
-
-bool tcpwrite(const int sockfd,const void *buffer,const int ibuflen)        // 发送二进制数据。
-{
-    if (sockfd==-1) return false;
-
-    if (writen(sockfd,(char*)buffer,ibuflen) == false) return false;
-
-    return true;
-}
-
-bool tcpwrite(const int sockfd,const string &buffer)      // 发送文本数据。
-{
-    if (sockfd==-1) return false;
-
-    int buflen=buffer.size();
-
-    // 先发送报头。
-    if (writen(sockfd,(char*)&buflen,4) == false) return false;
-
-    // 再发送报文体。
-    if (writen(sockfd,buffer.c_str(),buflen) == false) return false;
-
-    return true;
-}
-
-void ctcpserver::closelisten()
-{
-    if (m_listenfd >= 0)
-    {
-        ::close(m_listenfd); m_listenfd=-1;
-    }
-}
-
-void ctcpserver::closeclient()
-{
-    if (m_connfd >= 0)
-    {
-        ::close(m_connfd); m_connfd=-1; 
-    }
-}
-
-bool tcpread(const int sockfd,string &buffer,const int itimeout)    // 接收文本数据。
-{
-    if (sockfd==-1) return false;
-
-    // 如果itimeout>0，表示等待itimeout秒，如果itimeout秒后接收缓冲区中还没有数据，返回false。
-    if (itimeout>0)
-    {
-        struct pollfd fds;
-        fds.fd=sockfd;
-        fds.events=POLLIN;
-        if ( poll(&fds,1,itimeout*1000) <= 0 ) return false;
-    }
-
-    // 如果itimeout==-1，表示不等待，立即判断socket的接收缓冲区中是否有数据，如果没有，返回false。
-    if (itimeout==-1)
-    {
-        struct pollfd fds;
-        fds.fd=sockfd;
-        fds.events=POLLIN;
-        if ( poll(&fds,1,0) <= 0 ) return false;
-    }
-
-    int buflen=0;
-
-    // 先读取报文长度，4个字节。
-    if (readn(sockfd,(char*)&buflen,4) == false) return false;
-
-    buffer.resize(buflen);   // 设置buffer的大小。
-
-    // 再读取报文内容。
-    if (readn(sockfd,&buffer[0],buflen) == false) return false;
-
-    return true;
-}
-
-bool tcpread(const int sockfd,void *buffer,const int ibuflen,const int itimeout)    // 接收二进制数据。
-{
-    if (sockfd==-1) return false;
-
-    // 如果itimeout>0，表示需要等待itimeout秒，如果itimeout秒后还没有数据到达，返回false。
-    if (itimeout>0)
-    {
-        struct pollfd fds;
-        fds.fd=sockfd;
-        fds.events=POLLIN;//指定等待的事件为可读事件
-        if ( poll(&fds,1,itimeout*1000) <= 0 ) return false;//poll()返回值<=0表示等待超时或出错，>0表示发生了可读事件
-    }
-
-    // 如果itimeout==-1，表示不等待，立即判断socket的缓冲区中是否有数据，如果没有，返回false。
-    if (itimeout==-1)
-    {
-        struct pollfd fds;
-        fds.fd=sockfd; //设置文件描述符
-        fds.events=POLLIN;
-        if ( poll(&fds,1,0) <= 0 ) return false;//poll（要等待的文件描述符，数量，0：立即返回）
-    }
-
-    // 读取报文内容。
-    if (readn(sockfd,(char*)buffer,ibuflen) == false) return false;
-
-    return true;
-}
-
-bool tcpwrite(const int sockfd,const void *buffer,const int ibuflen)        // 发送二进制数据。
-{
-    if (sockfd==-1) return false;
-
-    if (writen(sockfd,(char*)buffer,ibuflen) == false) return false;
-
-    return true;
-}
-
-bool tcpwrite(const int sockfd,const string &buffer)      // 发送文本数据。
-{
-    if (sockfd==-1) return false;
-
-    int buflen=buffer.size();
-
-    // 先发送报头。
-    if (writen(sockfd,(char*)&buflen,4) == false) return false;
-
-    // 再发送报文体。
-    if (writen(sockfd,buffer.c_str(),buflen) == false) return false;
-
-    return true;
-}
-
-
-// 从已经准备好的socket中读取数据。
-// sockfd：已经准备好的socket连接。
-// buffer：接收数据缓冲区的地址。
-// n：本次接收数据的字节数。
-// 返回值：成功接收到n字节的数据后返回true，socket连接不可用返回false。
-bool readn(const int sockfd,char *buffer,const size_t n)
-{
-    int nleft=n;    // 剩余需要读取的字节数。
-    int idx=0;       // 已成功读取的字节数。
-    int nread;       // 每次调用recv()函数读到的字节数。
-
-    while(nleft > 0)
-    {
-        if ( (nread=recv(sockfd,buffer+idx,nleft,0)) <= 0) return false;//buffer+idx是一个指针算术运算，它将指针buffer偏移idx个字节的位置
-
-        idx=idx+nread;
-        nleft=nleft-nread;
-    }
-
-    return true;
-}
-
-// 向已经准备好的socket中写入数据。
-// sockfd：已经准备好的socket连接。
-// buffer：待发送数据缓冲区的地址。
-// n：待发送数据的字节数。
-// 返回值：成功发送完n字节的数据后返回true，socket连接不可用返回false。
-bool writen(const int sockfd,const char *buffer,const size_t n)
-{
-    int nleft=n;       // 剩余需要写入的字节数。
-    int idx=0;          // 已成功写入的字节数。
-    int nwritten;      // 每次调用send()函数写入的字节数。
-  
-    while(nleft > 0 )
-    {    
-      if ( (nwritten=send(sockfd,buffer+idx,nleft,0)) <= 0) return false;      
-    
-      nleft=nleft-nwritten;
-      idx=idx+nwritten;
-    }
-
-    return true;
+    closelisten(); closeclient();
 }
 
  cpactive::cpactive()

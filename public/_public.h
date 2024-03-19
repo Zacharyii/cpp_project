@@ -569,15 +569,17 @@ public:
 
     ~ctcpclient();  // 析构函数自动关闭socket，释放资源。
 };
+///////////////////////////////////// /////////////////////////////////////
 
 
 // socket通讯的服务端类
+///////////////////////////////////// /////////////////////////////////////
 class ctcpserver
 {
 private:
     int m_socklen;                                // 结构体struct sockaddr_in的大小。
-    struct sockaddr_in m_clientaddr;   // 客户端的地址信息。
-    struct sockaddr_in m_servaddr;     // 服务端的地址信息。
+    struct sockaddr_in m_clientaddr;             // 客户端的地址信息。
+    struct sockaddr_in m_servaddr;                  // 服务端的地址信息。
     int  m_listenfd;                               // 服务端用于监听的socket。
     int  m_connfd;                                // 客户端连接上来的socket。
 public:
@@ -619,7 +621,9 @@ public:
 
     ~ctcpserver();  // 析构函数自动关闭socket，释放资源。
 };
+///////////////////////////////////// /////////////////////////////////////
 
+///////////////////////////////////// /////////////////////////////////////
 // 接收socket的对端发送过来的数据。
 // sockfd：可用的socket连接。
 // buffer：接收数据缓冲区的地址。
@@ -650,9 +654,8 @@ bool readn(const int sockfd,char *buffer,const size_t n);
 // n：待写入数据的字节数。
 // 返回值：成功写入完n字节的数据后返回true，socket连接不可用返回false。
 bool writen(const int sockfd,const char *buffer,const size_t n);
-
-// 以上是socket通讯的函数和类
 ///////////////////////////////////// /////////////////////////////////////
+
 
 // 进程心跳信息的结构体。
 struct st_procinfo
