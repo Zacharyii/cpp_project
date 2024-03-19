@@ -1329,6 +1329,54 @@ bool clogfile::backup()
     return true;
 }
 
+
+// 向服务端发起连接请求
+bool ctcpclient::connect(const string &ip,const int port)
+{
+    // 如果已连接到服务端，则断开连接。
+    if (m_connfd!=-1) { ::close(m_connfd); m_connfd=-1; }
+ 
+    // 忽略SIGPIPE信号，防止程序异常退出。
+    // SIGPIPE 信号在向已断开连接的 socket 发送数据时可能会导致程序异常退出。
+    // 直接屏蔽它，以避免程序异常退出。
+    signal(SIGPIPE,SIG_IGN);   
+
+    m_ip=ip;
+    m_port=port;
+
+    struct hostent* h;
+    struct sockaddr_in servaddr;
+
+    if ( (m_connfd = socket(AF_INET,SOCK_STREAM,0) ) < 0) return false;
+
+    // 通过 gethostbyname 函数获取服务端的主机信息，包括 IP 地址
+    if ( !(h = gethostbyname(m_ip.c_str())) )
+    {
+        ::close(m_connfd);  m_connfd=-1; return false;
+    }
+
+    memset(&servaddr,0,sizeof(servaddr));
+    servaddr.sin_family = AF_INET;         //地址族 
+    servaddr.sin_port = htons(m_port);  // 指定服务端的通讯端口
+    memcpy(&servaddr.sin_addr,h->h_addr,h->h_length);
+
+    //如果连接成功，返回 true；否则，关闭连接，将 m_connfd 设为 -1，然后返回 false
+    if (::connect(m_connfd, (struct sockaddr *)&servaddr,sizeof(servaddr)) != 0)
+    {
+        ::close(m_connfd);  m_connfd=-1; return false;
+    }
+
+    return true;
+}
+
+// 接收对端发送过来的数据
+bool ctcpclient::read(void *buffer,const int ibuflen,const int itimeout)   // 接收二进制数据。
+{
+    if (m_connfd==-1) return false;
+
+    return(tcpread(m_connfd,buffer,ibuflen,itimeout));
+}
+
 bool ctcpclient::read(string &buffer,const int itimeout)  // 接收文本数据。
 {
     if (m_connfd==-1) return false;
@@ -1336,11 +1384,99 @@ bool ctcpclient::read(string &buffer,const int itimeout)  // 接收文本数据�
     return(tcpread(m_connfd,buffer,itimeout));
 }
 
-bool ctcpclient::read(void *buffer,const int ibuflen,const int itimeout)   // 接收二进制数据。
+// 从指定的 socket (sockfd) 接收二进制数据
+bool tcpread(const int sockfd,void *buffer,const int ibuflen,const int itimeout)    
+{
+    if (sockfd==-1) return false;//无效的 socket
+
+    // 如果itimeout>0，表示需要等待itimeout秒，如果itimeout秒后还没有数据到达，返回false。
+    if (itimeout>0)
+    {
+        struct pollfd fds;
+        fds.fd=sockfd;
+        fds.events=POLLIN;
+        if ( poll(&fds,1,itimeout*1000) <= 0 ) return false;//poll(指向 pollfd 结构体数组的指针，结构体数组的大小,等待的超时时间)
+    }
+
+    // 如果itimeout==-1，表示不等待，立即判断socket的缓冲区中是否有数据，如果没有，返回false。
+    if (itimeout==-1)
+    {
+        struct pollfd fds;
+        fds.fd=sockfd;
+        fds.events=POLLIN;//表示关注可读事件
+        if ( poll(&fds,1,0) <= 0 ) return false;//-1：发生错误.0：等待超时.
+    }
+
+    // 读取报文内容。
+    if (readn(sockfd,(char*)buffer,ibuflen) == false) return false;
+
+    return true;
+}
+
+bool tcpread(const int sockfd,string &buffer,const int itimeout)    // 接收文本数据。
+{
+    if (sockfd==-1) return false;
+
+    // 如果itimeout>0，表示等待itimeout秒，如果itimeout秒后接收缓冲区中还没有数据，返回false。
+    if (itimeout>0)
+    {
+        struct pollfd fds;
+        fds.fd=sockfd;
+        fds.events=POLLIN;
+        if ( poll(&fds,1,itimeout*1000) <= 0 ) return false;
+    }
+
+    // 如果itimeout==-1，表示不等待，立即判断socket的接收缓冲区中是否有数据，如果没有，返回false。
+    if (itimeout==-1)
+    {
+        struct pollfd fds;
+        fds.fd=sockfd;
+        fds.events=POLLIN;
+        if ( poll(&fds,1,0) <= 0 ) return false;
+    }
+
+    int buflen=0;
+
+    // 先读取报文长度，4个字节。
+    if (readn(sockfd,(char*)&buflen,4) == false) return false;
+
+    buffer.resize(buflen);   // 设置buffer的大小。
+
+    // 再读取报文内容。
+    if (readn(sockfd,&buffer[0],buflen) == false) return false;
+
+    return true;
+}
+
+// 从已经准备好的socket中读取数据。
+// sockfd：已经准备好的socket连接。
+// buffer：接收数据缓冲区的地址。
+// n：本次接收数据的字节数。
+// 返回值：成功接收到n字节的数据后返回true，socket连接不可用返回false。
+bool readn(const int sockfd,char *buffer,const size_t n)
+{
+    int nleft=n;    // 剩余需要读取的字节数。
+    int idx=0;       // 已成功读取的字节数。
+    int nread;       // 每次调用recv()函数读到的字节数。
+
+    while(nleft > 0)
+    {
+        //recv(要接收数据的文件描述符,接收数据的缓冲区的指针,要接收的数据的最大长度,附加的选项)
+        if ( (nread=recv(sockfd,buffer+idx,nleft,0)) <= 0) return false;
+
+        idx=idx+nread;
+        nleft=nleft-nread;
+    }
+
+    return true;
+}
+
+// 向对端发送数据
+bool ctcpclient::write(const void *buffer,const int ibuflen)
 {
     if (m_connfd==-1) return false;
 
-    return(tcpread(m_connfd,buffer,ibuflen,itimeout));
+    return(tcpwrite(m_connfd,(char*)buffer,ibuflen));
 }
 
 bool ctcpclient::write(const string &buffer)
@@ -1355,6 +1491,21 @@ bool tcpwrite(const int sockfd,const void *buffer,const int ibuflen)        // �
     if (sockfd==-1) return false;
 
     if (writen(sockfd,(char*)buffer,ibuflen) == false) return false;
+
+    return true;
+}
+
+bool tcpwrite(const int sockfd,const string &buffer)      // 发送文本数据。
+{
+    if (sockfd==-1) return false;
+
+    int buflen=buffer.size();
+
+    // 先发送报头。将 buflen 强制转换为 char* 类型，并发送 4 字节的长度
+    if (writen(sockfd,(char*)&buflen,4) == false) return false;
+
+    // 再发送报文体。
+    if (writen(sockfd,buffer.c_str(),buflen) == false) return false;
 
     return true;
 }
@@ -1381,11 +1532,19 @@ bool writen(const int sockfd,const char *buffer,const size_t n)
     return true;
 }
 
-bool ctcpclient::write(const void *buffer,const int ibuflen)
+// 断开与服务端的连接
+void ctcpclient::close()
 {
-    if (m_connfd==-1) return false;
+    if (m_connfd >= 0) ::close(m_connfd); 
 
-    return(tcpwrite(m_connfd,(char*)buffer,ibuflen));
+    m_connfd=-1;
+    m_port=0;
+}
+
+// 析构函数
+ctcpclient::~ctcpclient()
+{
+    close();
 }
 
 bool ctcpserver::accept()

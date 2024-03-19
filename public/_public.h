@@ -531,10 +531,9 @@ public:
 
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
 // 以下是socket通讯的函数和类
-
 // socket通讯的客户端类
+///////////////////////////////////// /////////////////////////////////////
 class ctcpclient
 {
 private:
@@ -542,7 +541,7 @@ private:
     string m_ip;        // 服务端的ip地址。
     int  m_port;        // 服务端通讯的端口。
 public:
-    ctcpclient(): m_connfd(-1),m_port(0) { }  // 构造函数。
+    ctcpclient(): m_connfd(-1),m_port(0) { }  // 构造函数，初始化 m_connfd 和 m_port
 
     // 向服务端发起连接请求。
     // ip：服务端的ip地址。
@@ -570,6 +569,7 @@ public:
 
     ~ctcpclient();  // 析构函数自动关闭socket，释放资源。
 };
+
 
 // socket通讯的服务端类
 class ctcpserver
