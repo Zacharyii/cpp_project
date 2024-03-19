@@ -1384,7 +1384,7 @@ bool ctcpclient::read(string &buffer,const int itimeout)  // 接收文本数据�
     return(tcpread(m_connfd,buffer,itimeout));
 }
 
-// 从指定的 socket (sockfd) 接收二进制数据
+// 接收socket的对端发送过来的数据。
 bool tcpread(const int sockfd,void *buffer,const int ibuflen,const int itimeout)    
 {
     if (sockfd==-1) return false;//无效的 socket
@@ -1413,6 +1413,7 @@ bool tcpread(const int sockfd,void *buffer,const int ibuflen,const int itimeout)
     return true;
 }
 
+// 接收socket的对端发送过来的数据。
 bool tcpread(const int sockfd,string &buffer,const int itimeout)    // 接收文本数据。
 {
     if (sockfd==-1) return false;
@@ -1449,10 +1450,6 @@ bool tcpread(const int sockfd,string &buffer,const int itimeout)    // 接收文
 }
 
 // 从已经准备好的socket中读取数据。
-// sockfd：已经准备好的socket连接。
-// buffer：接收数据缓冲区的地址。
-// n：本次接收数据的字节数。
-// 返回值：成功接收到n字节的数据后返回true，socket连接不可用返回false。
 bool readn(const int sockfd,char *buffer,const size_t n)
 {
     int nleft=n;    // 剩余需要读取的字节数。
@@ -1486,6 +1483,7 @@ bool ctcpclient::write(const string &buffer)
     return(tcpwrite(m_connfd,buffer));
 }
 
+// 向socket的对端发送数据
 bool tcpwrite(const int sockfd,const void *buffer,const int ibuflen)        // 发送二进制数据。
 {
     if (sockfd==-1) return false;
@@ -1511,10 +1509,6 @@ bool tcpwrite(const int sockfd,const string &buffer)      // 发送文本数据�
 }
 
 // 向已经准备好的socket中写入数据。
-// sockfd：已经准备好的socket连接。
-// buffer：待发送数据缓冲区的地址。
-// n：待发送数据的字节数。
-// 返回值：成功发送完n字节的数据后返回true，socket连接不可用返回false。
 bool writen(const int sockfd,const char *buffer,const size_t n)
 {
     int nleft=n;       // 剩余需要写入的字节数。
