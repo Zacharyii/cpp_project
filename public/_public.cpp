@@ -1649,6 +1649,19 @@ ctcpserver::~ctcpserver()
     closelisten(); closeclient();
 }
 
+// 忽略关闭全部的信号、关闭全部的IO，缺省只忽略信号，不关IO。 
+void closeioandsignal(bool bcloseio)
+{
+    int ii=0;
+
+    for (ii=0;ii<64;ii++)
+    {
+        if (bcloseio==true) close(ii);
+
+        signal(ii,SIG_IGN); 
+    }
+}
+
  cpactive::cpactive()
  {
      m_shmid=0;
