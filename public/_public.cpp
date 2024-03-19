@@ -1277,6 +1277,7 @@ bool cifile::readline(string &buf,const string& endbz)
     return false;
 }
 
+// 打开日志文件
 bool clogfile::open(const string &filename,const ios::openmode mode,const bool bbackup,const bool benbuffer)
 {
     // 如果日志文件是打开的状态，先关闭它。
@@ -1296,6 +1297,7 @@ bool clogfile::open(const string &filename,const ios::openmode mode,const bool b
     return fout.is_open();
 }
 
+// 如果日志文件的大小超过m_maxsize的值，就把当前的日志文件名改为历史日志文件名，再创建新的当前日志文件。
 bool clogfile::backup()
 {
     // 不备份
