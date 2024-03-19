@@ -1142,6 +1142,7 @@ cdir::~cdir()
     m_filelist.clear();
 }
 
+// 打开文件
 bool cofile::open(const string &filename,const bool btmp,const ios::openmode mode,const bool benbuffer)
 {
     // 如果文件是打开的状态，先关闭它。
@@ -1162,20 +1163,21 @@ bool cofile::open(const string &filename,const bool btmp,const ios::openmode mod
         fout.open(m_filename,mode);
     }
 
-    // 不启用文件缓冲区。
+    // 不启用文件缓冲区。将输出流设置为无缓冲模式
     if (benbuffer==false) fout << unitbuf;
 
     return fout.is_open();
 }
 
+// 把二进制数据写入文件
 bool cofile::write(void *buf,int bufsize)
 {
     if (fout.is_open()==false) return false;
 
     // fout.write((char *)buf,bufsize);
-    fout.write(static_cast<char *>(buf),bufsize); //把二进制数据写入文件
+    fout.write(static_cast<char *>(buf),bufsize);
 
-    return fout.good();//返回true表示文件流没有遇到任何错误，并且可以继续写入数据
+    return fout.good();
 }
 
 // 关闭文件，并且把临时文件名改为正式文件名。
@@ -1204,6 +1206,7 @@ void cofile::close()
         remove(m_filenametmp.c_str());
 }
 
+// 打开文件
 bool cifile::open(const string &filename,const ios::openmode mode)
 {
     // 如果文件是打开的状态，先关闭它。
@@ -1216,6 +1219,36 @@ bool cifile::open(const string &filename,const ios::openmode mode)
     return fin.is_open();
 }
 
+// 读取二进制文件，返回实际读取到的字节数
+int cifile::read(void *buf,const int bufsize)
+{
+    // fin.read((char *)buf,bufsize);
+    fin.read(static_cast<char *>(buf),bufsize);
+
+    return fin.gcount();          // 返回读取的字节数。
+}
+
+// 关闭并删除文件
+bool cifile::closeandremove()
+{
+    if (fin.is_open()==false) return false;
+
+    fin.close(); 
+
+    if (remove(m_filename.c_str())!=0) return false;
+
+    return true;
+}
+
+// 只关闭文件
+void cifile::close() 
+{ 
+    if (fin.is_open()==false) return;
+
+    fin.close(); 
+}
+
+// 以行的方式读取文本文件，endbz指定行的结尾标志，缺省为空，没有结尾标志
 bool cifile::readline(string &buf,const string& endbz)
 {
     buf.clear();            // 清空buf。
@@ -1224,9 +1257,9 @@ bool cifile::readline(string &buf,const string& endbz)
 
     while (true)
     {
-        getline(fin,strline);    // 从文件中读取一行文本存储到strline中。
+        getline(fin,strline);    // 从文件中读取一行。
       
-        if (fin.eof()) break;    // 如果文件已读完（检测文件是否已到末尾）。
+        if (fin.eof()) break;    // 如果文件已读完。
 
         buf=buf+strline;      // 把读取的内容拼接到buf中。
 
@@ -1242,32 +1275,6 @@ bool cifile::readline(string &buf,const string& endbz)
     }
 
     return false;
-}
-
-int cifile::read(void *buf,const int bufsize)
-{
-    // fin.read((char *)buf,bufsize);
-    fin.read(static_cast<char *>(buf),bufsize);
-
-    return fin.gcount();          // 返回读取的字节数。
-}
-
-bool cifile::closeandremove()
-{
-    if (fin.is_open()==false) return false;
-
-    fin.close(); 
-
-    if (remove(m_filename.c_str())!=0) return false;
-
-    return true;
-}
-
-void cifile::close() 
-{ 
-    if (fin.is_open()==false) return;
-
-    fin.close(); 
 }
 
 bool clogfile::open(const string &filename,const ios::openmode mode,const bool bbackup,const bool benbuffer)
