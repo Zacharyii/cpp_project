@@ -884,24 +884,23 @@ double ctimer::elapsed()
     return dend-dstart;
 }
 
+//创建目录
 bool newdir(const string &pathorfilename,bool bisfilename)
 {
-    // /tmp/aaa/bbb/ccc/ddd    /tmp    /tmp/aaa    /tmp/aaa/bbb    /tmp/aaa/bbb/ccc 
-     
     // 检查目录是否存在，如果不存在，逐级创建子目录
     int pos=1;          // 不要从0开始，0是根目录/。
 
     while (true)
     {
-        int pos1=pathorfilename.find('/',pos);  //以“/”为分隔符获取每级目录的位置
-        if (pos1==string::npos) break;          //没找到
+        int pos1=pathorfilename.find('/',pos);
+        if (pos1==string::npos) break;
 
         string strpathname=pathorfilename.substr(0,pos1);      // 截取目录。
 
         pos=pos1+1;       // 位置后移。
-        if (access(strpathname.c_str(),F_OK) != 0)  // 如果目录不存在，创建它。access用于测试文件或目录的访问权限  
-        {                                           // F_OK用于检查文件或目录是否存在的访问模式常量。返回0存在，-1不存在
-            // 0755是八进制，不要写成755。0表示八进制，7表示111拥有所有者的读、写、执行权限，5表示101组用户的读、执行，5其他用户读、执行
+        if (access(strpathname.c_str(),F_OK) != 0)  //access 函数用于检查文件或目录的访问权限,如果目录不存在，创建它。
+        {
+            // 0755是八进制，不要写成755。
             if (mkdir(strpathname.c_str(),0755) != 0) return false;  // 如果目录不存在，创建它。
         }
     }
@@ -909,79 +908,50 @@ bool newdir(const string &pathorfilename,bool bisfilename)
     // 如果pathorfilename不是文件，是目录，还需要创建最后一级子目录。
     if (bisfilename==false)
     {
-        if (access(pathorfilename.c_str(),F_OK) != 0)   //目录名如果不存在
+        if (access(pathorfilename.c_str(),F_OK) != 0)
         {
-            if (mkdir(pathorfilename.c_str(),0755) != 0) return false;  //如果创建目录不成功
+            if (mkdir(pathorfilename.c_str(),0755) != 0) return false;
         }
     }
 
     return true;
 }
 
-bool renamefile(const string &srcfilename,const string &dstfilename)
-{
-    // 如果原文件不存在，直接返回失败。                         // 应该是F_OK
-    if (access(srcfilename.c_str(),R_OK) != 0) return false; //R_OK读权限，W_OK写权限，X_OK执行权限，F_OK是否存在
-
-    // 创建目标文件的目录。
-    if (newdir(dstfilename,true) == false) return false;
-
-    // 调用操作系统的库函数rename重命名文件。 mv
-    if (rename(srcfilename.c_str(),dstfilename.c_str()) == 0) return true;
-
-    return false;
-}
-
-bool copyfile(const string &srcfilename,const string &dstfilename)
-{
-    // 创建目标文件的目录。
-    if (newdir(dstfilename,true) == false) return false;
-
-    cifile ifile;
-    cofile ofile;
-    int ifilesize=filesize(srcfilename);
-
-    int  total_bytes=0;
-    int  onread=0;
-    char buffer[5000];
-
-    if (ifile.open(srcfilename,ios::in|ios::binary)==false) return false;
-
-    if (ofile.open(dstfilename,ios::out|ios::binary)==false) return false;
-
-    while (true)
-    {
-        if ((ifilesize-total_bytes) > 5000) onread=5000;
-        else onread=ifilesize-total_bytes;
-
-        memset(buffer,0,sizeof(buffer));
-        ifile.read(buffer,onread);
-        ofile.write(buffer,onread);
-
-        total_bytes = total_bytes + onread;
-
-        if (total_bytes == ifilesize) break;
-    }
-
-    ifile.close();
-    ofile.closeandrename();
-
-    // 更改文件的修改时间属性
-    string strmtime;
-    filemtime(srcfilename,strmtime);
-    setmtime(dstfilename,strmtime);
-
-    return true;
-}
-
+// 获取文件的大小
 int filesize(const string &filename)
 {
     struct stat st_filestat;      // 存放文件信息的结构体。
 
     // 获取文件信息，存放在结构体中。
-    if (stat(filename.c_str(),&st_filestat) < 0) return -1;//stat用于获取文件的状态信息，返回<0表示失败
+    if (stat(filename.c_str(),&st_filestat) < 0) return -1;//stat成功获取文件信息返回0
 
     return st_filestat.st_size;   // 返回结构体的文件大小成员。
+}
+
+// 修改时间
+bool setmtime(const string &filename,const string &mtime)
+{
+    struct utimbuf stutimbuf;
+
+    stutimbuf.actime=stutimbuf.modtime=strtotime(mtime);
+
+    if (utime(filename.c_str(),&stutimbuf)!=0) return false;
+
+    return true;
+}
+
+// 获取文件的时间
+bool filemtime(const string &filename,string &mtime,const string &fmt)
+{
+    struct stat st_filestat;      // 存放文件信息的结构体。
+
+    // 获取文件信息，存放在结构体中。
+    if (stat(filename.c_str(),&st_filestat) < 0) return false;
+
+    // 把整数表示的时间转换成字符串表示的时间。
+    timetostr(st_filestat.st_mtime,mtime,fmt);
+
+    return true;
 }
 
 bool filemtime(const string &filename,char *mtime,const string &fmt)
@@ -997,26 +967,60 @@ bool filemtime(const string &filename,char *mtime,const string &fmt)
     return true;
 }
 
-bool filemtime(const string &filename,string &mtime,const string &fmt)
+// 重命名文件
+bool renamefile(const string &srcfilename,const string &dstfilename)
 {
-    struct stat st_filestat;      // 存放文件信息的结构体。
+    // 如果原文件不存在，直接返回失败。
+    if (access(srcfilename.c_str(),R_OK) != 0) return false;
 
-    // 获取文件信息，存放在结构体中。
-    if (stat(filename.c_str(),&st_filestat) < 0) return false;
+    // 创建目标文件的目录。
+    if (newdir(dstfilename,true) == false) return false;
 
-    // 把整数表示的时间转换成字符串表示的时间。
-    timetostr(st_filestat.st_mtime,mtime,fmt);
+    // 调用操作系统的库函数rename重命名文件。 mv
+    if (rename(srcfilename.c_str(),dstfilename.c_str()) == 0) return true;
 
-    return true;
+    return false;
 }
 
-bool setmtime(const string &filename,const string &mtime)
+// 复制文件
+bool copyfile(const string &srcfilename,const string &dstfilename)
 {
-    struct utimbuf stutimbuf;
+    // 创建目标文件的目录。
+    if (newdir(dstfilename,true) == false) return false;
 
-    stutimbuf.actime=stutimbuf.modtime=strtotime(mtime);
+    cifile ifile;
+    cofile ofile;
+    int ifilesize=filesize(srcfilename);
 
-    if (utime(filename.c_str(),&stutimbuf)!=0) return false;
+    int  total_bytes=0; //已复制的字节数
+    int  onread=0;      //每次读取的字节数
+    char buffer[5000];  //用于读取和写入数据的缓冲区
+
+    if (ifile.open(srcfilename,ios::in|ios::binary)==false) return false;//以二进制读取方式打开源文件
+
+    if (ofile.open(dstfilename,ios::out|ios::binary)==false) return false;//以二进制写入方式打开目标文件
+
+    while (true)
+    {
+        if ((ifilesize-total_bytes) > 5000) onread=5000;
+        else onread=ifilesize-total_bytes;
+
+        memset(buffer,0,sizeof(buffer));
+        ifile.read(buffer,onread);
+        ofile.write(buffer,onread);
+
+        total_bytes = total_bytes + onread;
+
+        if (total_bytes == ifilesize) break;
+    }
+
+    ifile.close();//关闭源文件
+    ofile.closeandrename();//关闭目标文件并重命名为最终的文件名
+
+    // 更改文件的修改时间属性
+    string strmtime;
+    filemtime(srcfilename,strmtime);
+    setmtime(dstfilename,strmtime);
 
     return true;
 }
