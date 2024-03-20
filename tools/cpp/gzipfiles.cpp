@@ -1,4 +1,4 @@
-#include "/project/public/_public.cpp"
+#include "_public.h"
 using namespace idc;
 
 cpactive pactive;                 // 进程的心跳。
@@ -52,7 +52,7 @@ int main(int argc,char *argv[])
         {
             // 压缩文件，调用操作系统的gzip命令。
             string strcmd="/usr/bin/gzip -f " + dir.m_ffilename + " 1>/dev/null 2>/dev/null";
-            if (system(strcmd.c_str())==0)
+            if (system(strcmd.c_str())==0)//system() 在操作系统中执行命令行指令。如果执行成功，返回值为 0
                 cout << "gzip " << dir.m_ffilename << "  ok.\n";
             else
                 cout << "gzip " << dir.m_ffilename << " failed.\n"; 
