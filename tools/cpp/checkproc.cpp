@@ -1,5 +1,5 @@
-// 守护程序: 检查共享内存中进程的心跳，如果超时，则终止进程。
-#include "/project/public/_public.h"
+// 守护程序：检查共享内存中进程的心跳，如果超时，则终止进程。
+#include "_public.h"
 using namespace idc;
 
 int main(int argc,char *argv[])
@@ -41,7 +41,7 @@ int main(int argc,char *argv[])
     // 将共享内存连接到当前进程的地址空间。
     struct st_procinfo *shm=(struct st_procinfo *)shmat(shmid, 0, 0);
 
-        // 遍历共享内存中全部的记录，如果进程已超时，终止它。
+    // 遍历共享内存中全部的记录，如果进程已超时，终止它。
     for (int ii=0;ii<MAXNUMP;ii++)
     {
         // 如果记录的pid==0，表示空记录，continue;
