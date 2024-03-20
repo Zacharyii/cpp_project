@@ -1,10 +1,36 @@
-#include "/project/public/_public.cpp"
-#include "/project/public/_ftp.h"
-using namespace idc;
+#include "_public.h"
+#include "_ftp.h"
 
+using namespace idc;
 
 // 程序退出和信号2、15的处理函数。
 void EXIT(int sig);
+
+// 程序运行参数的结构体。
+struct st_arg
+{
+    char host[31];                        // 远程服务端的IP和端口。
+    int    mode;                           // 传输模式，1-被动模式，2-主动模式，缺省采用被动模式。
+    char username[31];               // 远程服务端ftp的用户名。
+    char password[31];                // 远程服务端ftp的密码。
+    char remotepath[256];          // 远程服务端存放文件的目录。
+    char localpath[256];              // 本地文件存放的目录。
+    char matchname[256];          // 待下载文件匹配的规则。
+    int   ptype;                            // 下载后服务端文件的处理方式：1-什么也不做；2-删除；3-备份。
+    char remotepathbak[256];   // 下载后服务端文件的备份目录。
+    char okfilename[256];          // 已下载成功文件信息存放的文件。
+    bool checkmtime;                // 是否需要检查服务端文件的时间，true-需要，false-不需要，缺省为false。
+    int  timeout;                         // 进程心跳超时的时间。
+    char pname[51];                  // 进程名，建议用"ftpgetfiles_后缀"的方式。
+} starg;
+
+bool _xmltoarg(const char *strxmlbuffer);  // 把xml解析到参数starg结构中。
+
+clogfile logfile;     // 日志文件对象。
+cftpclient ftp;       // 创建ftp客户端对象。
+cpactive pactive;  // 进程心跳的对象。
+
+void _help();        // 显示帮助文档。
 
 struct st_fileinfo              // 文件信息的结构体。
 {
@@ -25,38 +51,11 @@ bool loadlistfile();            // 把ftpclient.nlist()方法获取到的list文
 bool compmap();            // 比较vfromnlist和vfromok，得到vtook和vdownload。
 bool writetookfile();        // 把容器vtook中的数据写入starg.okfilename文件，覆盖之前的旧starg.okfilename文件。
 bool appendtookfile(struct st_fileinfo &stfileinfo); // 把下载成功的文件记录追加到starg.okfilename文件中。
-bool loadlistfile(); // 把ftpclient.nlist()方法获取到的list文件加载到容器vfilelist中
-
-// 程序运行参数的结构体。
-struct st_arg
-{
-    char host[31];                      // 远程服务端的IP和端口。
-    int    mode;                        // 传输模式，1-被动模式，2-主动模式，缺省采用被动模式。
-    char username[31];                  // 远程服务端ftp的用户名。
-    char password[31];                  // 远程服务端ftp的密码。
-    char remotepath[256];               // 远程服务端存放文件的目录。
-    char localpath[256];                // 本地文件存放的目录。
-    char matchname[256];                // 待下载文件匹配的规则。
-    int   ptype;                        // 下载后服务端文件的处理方式：1-什么也不做；2-删除；3-备份。
-    char remotepathbak[256];            // 下载后服务端文件的备份目录。
-    char okfilename[256];               // 已下载成功文件信息存放的文件。
-    bool checkmtime;                    // 是否需要检查服务端文件的时间，true-需要，false-不需要，缺省为false。
-    int  timeout;                       // 进程心跳超时的时间。
-    char pname[51];                     // 进程名，建议用"ftpgetfiles_后缀"的方式。
-}starg;
-
-clogfile logfile;     // 日志文件对象。
-cftpclient ftp;       // 创建ftp客户端对象。
-cpactive pactive;     // 进程心跳的对象。
-
-void _help();        // 显示帮助文档。
-
-bool _xmltoarg(const char *strxmlbuffer);  // 把xml解析到参数starg结构中。
 
 int main(int argc,char *argv[])
 {
     // 第一步计划：从服务器某个目录中下载文件，可以指定文件名匹配的规则。
-    if(argc!=3) {_help(); return -1;}
+    if (argc!=3) { _help();    return -1; }
 
     // 设置信号,在shell状态下可用 "kill + 进程号" 正常终止些进程。
     // 但请不要用 "kill -9 +进程号" 强行终止。
@@ -72,13 +71,15 @@ int main(int argc,char *argv[])
     // 解析xml，得到程序运行的参数。
     if (_xmltoarg(argv[2])==false) return -1;
 
+    pactive.addpinfo(starg.timeout,starg.pname);  // 把进程的心跳信息写入共享内存。
+
     // 登录ftp服务器。
     if (ftp.login(starg.host,starg.username,starg.password,starg.mode)==false)
     {
         logfile.write("ftp.login(%s,%s,%s) failed.\n%s\n",starg.host,starg.username,starg.password,ftp.response()); return -1;
     }
 
-    //logfile.write("ftp.login ok.\n");
+    // logfile.write("ftp.login ok.\n");
 
     // 进入ftp服务器存放文件的目录。
     if (ftp.chdir(starg.remotepath)==false)
@@ -95,7 +96,7 @@ int main(int argc,char *argv[])
 
     pactive.uptatime();   // 更新进程的心跳。
 
-    // 把ftpclient.nlist()方法获取到的list文件加载到容器vfilelist中。
+    // 把ftpclient.nlist()方法获取到的list文件加载到容器vfromnlist中。
     if (loadlistfile()==false)
     {
       logfile.write("loadlistfile() failed.\n");  return -1;
@@ -117,10 +118,9 @@ int main(int argc,char *argv[])
 
     pactive.uptatime();   // 更新进程的心跳。
 
-
     string strremotefilename,strlocalfilename;
 
-    // 遍历vfilelist容器。
+    // 遍历vdownload容器。
     for (auto & aa : vdownload) 
     {
         sformat(strremotefilename,"%s/%s",starg.remotepath,aa.filename.c_str());         // 拼接服务端全路径的文件名。
@@ -163,46 +163,45 @@ int main(int argc,char *argv[])
     return 0;
 }
 
-void _help()
+void _help()        // 显示帮助文档。
 {
     printf("\n");
     printf("Using:/project/tools/bin/ftpgetfiles logfilename xmlbuffer\n\n");
 
-    // printf("Sample:/project/tools/bin/procctl 30 /project/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_surfdata.log " \
-    //          "\"<host>192.168.174.128:21</host><mode>1</mode>"\
-    //          "<username>test1</username><password>123456</password>"\
+    //printf("Sample:/project/tools/bin/procctl 30 /project/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_surfdata.log " \
+    //          "\"<host>192.168.174.129:21</host><mode>1</mode>"\
+    //          "<username>wucz</username><password>oracle</password>"\
     //          "<remotepath>/tmp/idc/surfdata</remotepath><localpath>/idcdata/surfdata</localpath>"\
     //          "<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname>"\
     //          "<ptype>3</ptype><remotepathbak>/tmp/idc/surfdatabak</remotepathbak>\"\n\n");
-
     printf("Sample:/project/tools/bin/procctl 30 /project/tools/bin/ftpgetfiles /log/idc/ftpgetfiles_test.log " \
-             "\"<host>192.168.174.128:21</host><mode>1</mode>"\
-             "<username>test1</username><password>123456</password>"\
-             "<remotepath>/tmp/ftp/server</remotepath><localpath>/tmp/ftp/client</localpath>"\
-             "<matchname>*.TXT</matchname>"\
-             "<ptype>1</ptype><okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename>"\
-             "<checkmtime>true</checkmtime>"\
-               "<timeout>30</timeout><pname>ftpgetfiles_test</pname>\"\n\n\n");
+              "\"<host>192.168.174.129:21</host><mode>1</mode>"\
+              "<username>wucz</username><password>oracle</password>"\
+              "<remotepath>/tmp/ftp/server</remotepath><localpath>/tmp/ftp/client</localpath>"\
+              "<matchname>*.TXT</matchname>"\
+              "<ptype>1</ptype><okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename>"\
+              "<checkmtime>true</checkmtime>"\
+              "<timeout>30</timeout><pname>ftpgetfiles_test</pname>\"\n\n\n");
 
     printf("本程序是通用的功能模块，用于把远程ftp服务端的文件下载到本地目录。\n");
     printf("logfilename是本程序运行的日志文件。\n");
     printf("xmlbuffer为文件下载的参数，如下：\n");
-    printf("<host>192.168.174.128:21</host> 远程服务端的IP和端口。\n");
+    printf("<host>192.168.150.128:21</host> 远程服务端的IP和端口。\n");
     printf("<mode>1</mode> 传输模式，1-被动模式，2-主动模式，缺省采用被动模式。\n");
     printf("<username>test1</username> 远程服务端ftp的用户名。\n");
     printf("<password>123456</password> 远程服务端ftp的密码。\n");
     printf("<remotepath>/tmp/idc/surfdata</remotepath> 远程服务端存放文件的目录。\n");
     printf("<localpath>/idcdata/surfdata</localpath> 本地文件存放的目录。\n");
     printf("<matchname>SURF_ZH*.XML,SURF_ZH*.CSV</matchname> 待下载文件匹配的规则。"\
-            "不匹配的文件不会被下载，本字段尽可能设置精确，不建议用*匹配全部的文件。\n\n");
+              "不匹配的文件不会被下载，本字段尽可能设置精确，不建议用*匹配全部的文件。\n");
     printf("<ptype>1</ptype> 文件下载成功后，远程服务端文件的处理方式："\
-            "1-什么也不做；2-删除；3-备份，如果为3，还要指定备份的目录。\n");
+              "1-什么也不做；2-删除；3-备份，如果为3，还要指定备份的目录。\n");
     printf("<remotepathbak>/tmp/idc/surfdatabak</remotepathbak> 文件下载成功后，服务端文件的备份目录，"\
-            "此参数只有当ptype=3时才有效。\n\n\n");
+              "此参数只有当ptype=3时才有效。\n");
     printf("<okfilename>/idcdata/ftplist/ftpgetfiles_test.xml</okfilename> 已下载成功文件名清单，"\
-            "此参数只有当ptype=1时才有效。\n");
+              "此参数只有当ptype=1时才有效。\n");
     printf("<checkmtime>true</checkmtime> 是否需要检查服务端文件的时间，true-需要，false-不需要，"\
-            "此参数只有当ptype=1时才有效，缺省为false。\n");
+              "此参数只有当ptype=1时才有效，缺省为false。\n");
     printf("<timeout>30</timeout> 下载文件超时时间，单位：秒，视文件大小和网络带宽而定。\n");
     printf("<pname>ftpgetfiles_test</pname> 进程名，尽可能采用易懂的、与其它进程不同的名称，方便故障排查。\n\n\n");
 }
@@ -277,7 +276,7 @@ void EXIT(int sig)
     exit(0);
 }
 
-// 把ftp.nlist()方法获取到的list文件加载到容器vfilelist中。
+// 把ftp.nlist()方法获取到的list文件加载到容器vfromnlist中。
 bool loadlistfile()
 {
     vfromnlist.clear();
@@ -305,13 +304,13 @@ bool loadlistfile()
             }
         }
 
-        vfromnlist.emplace_back(strfilename,"");
+        vfromnlist.emplace_back(strfilename,ftp.m_mtime);
     }
 
     ifile.closeandremove();
 
-    // for (auto &aa:vfilelist)
-    //    logfile.write("filename=%s=\n",aa.filename.c_str());
+    //for (auto &aa:vfromnlist)
+    //    logfile.write("filename=%s,mtime=%s\n",aa.filename.c_str(),aa.mtime.c_str());
 
     return true;
 }
