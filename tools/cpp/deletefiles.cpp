@@ -1,14 +1,15 @@
-#include "/project/public/_public.h"
+#include "_public.h"
 using namespace idc;
 
-cpactive pactive;
+cpactive pactive;                 // 进程的心跳。
 
+// 程序退出和信号2、15的处理函数。
 void EXIT(int sig);
 
 int main(int argc,char *argv[])
 {
-    //程序帮助
-     if (argc != 4)
+    // 程序的帮助。
+    if (argc != 4)
     {
         printf("\n");
         printf("Using:/project/tools/bin/deletefiles pathname matchstr timeout\n\n");
@@ -24,32 +25,35 @@ int main(int argc,char *argv[])
 
         return -1;
 	}
-    //忽略全部信号和关闭io，设置信号处理函数
-    closeioandsignal(true);      //开发测试阶段注释掉，方便调试
-    signal(2,EXIT);signal(15,EXIT);
 
-    pactive.addpinfo(30,"deletefiles");
+    // 忽略全部的信号和关闭I/O，设置信号处理函数。
+    closeioandsignal(true);          // 在开发测试阶段，这行代码不启用，方便显示调试信息。
+    signal(2,EXIT); signal(15,EXIT);//signal()接收到特定信号时执行相应的操作.2:ctrl+c,15:kill
 
-    //获取被定义为历史数据文件的时间点
-    string strtimeout=ltime1("yyyymmddhh24miss",0-(int)(atof(argv[3])*24*60*60));
-    // cout<< "strtimeout=" << strtimeout << endl;
+    pactive.addpinfo(30,"deletefiles");       // 把当前进程的心跳加入共享内存。   
 
-    //打开目录
+    // 获取被定义为历史数据文件的时间点。
+    string strtimeout=ltime1("yyyymmddhh24miss",0-(int)(atof(argv[3])*24*60*60));//当前时间往前推 argv[3] 天的时间点。
+    // cout << "strtimeout=" << strtimeout << endl;
+
+    // 打开目录。
     cdir dir;
-    if(dir.opendir(argv[1],argv[2],10000,true)==false);
-
-    //遍历目录中的文件，如果是历史数据文件，则删除
-    while(dir.readdir()==true)
+    if (dir.opendir(argv[1],argv[2],10000,true)==false)
     {
-        // 把文件的时间与历史文件的时间点比较，如果更早，就需要删除。
-        if(dir.m_mtime<strtimeout)
+        printf("dir.opendir(%s) failed.\n",argv[1]); return -1;
+    }
+
+    // 遍历目录中的文件，如果是历史数据文件，删除它。
+    while (dir.readdir()==true)
+    {
+        // 把文件的修改时间与历史文件的时间点比较，如果更早，就需要删除。
+        if ( dir.m_mtime < strtimeout)
         {
-            if(remove(dir.m_ffilename.c_str())==0)
-                cout<<"remove("<<dir.m_ffilename<<")ok.\n";
+            if (remove(dir.m_ffilename.c_str())==0)
+                cout << "remove(" << dir.m_ffilename << ") ok.\n";
             else
-                cout<<"remove("<<dir.m_ffilename<<")failed.\n";
+                cout << "remove(" << dir.m_ffilename << ") failed.\n"; 
         }
-    
     }
 
     return 0;
@@ -57,8 +61,7 @@ int main(int argc,char *argv[])
 
 void EXIT(int sig)
 {
-    cout << "程序退出，sig=%d\n\n",sig;
+    printf("程序退出，sig=%d\n\n",sig);
 
     exit(0);
-    
 }
