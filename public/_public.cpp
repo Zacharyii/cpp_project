@@ -1770,17 +1770,10 @@ csemp::~csemp()
 {
 }
 
- cpactive::cpactive()
- {
-     m_shmid=0;
-     m_pos=-1;
-     m_shm=0;
- }
-
-  // 把当前进程的信息加入共享内存进程组中。
+ // 把当前进程的信息加入共享内存进程组中。
  bool cpactive::addpinfo(const int timeout,const string &pname,clogfile *logfile)
  {
-    if (m_pos!=-1) return true;
+    if (m_pos!=-1) return true;//已经存在进程信息
 
     // 创建/获取共享内存，键值为SHMKEYP，大小为MAXNUMP个st_procinfo结构体的大小。
     if ( (m_shmid = shmget((key_t)SHMKEYP, MAXNUMP*sizeof(struct st_procinfo), 0666|IPC_CREAT)) == -1)
@@ -1836,7 +1829,8 @@ csemp::~csemp()
     if (m_pos==-1) 
     { 
         if (logfile!=0) logfile->write("共享内存空间已用完。\n");
-        else printf("共享内存空间已用完。\n");
+        //如果logfile指针为空，表示无法写入日志文件，那么使用printf函数直接在控制台输出错误信息。
+        else printf("共享内存空间已用完。\n");//
 
         semp.post();  // 解锁。
 
@@ -1844,21 +1838,28 @@ csemp::~csemp()
     }
 
     // 把当前进程的心跳信息存入共享内存的进程组中。
-    memcpy(m_shm+m_pos,&stprocinfo,sizeof(struct st_procinfo)); 
+    memcpy(m_shm+m_pos,&stprocinfo,sizeof(struct st_procinfo)); //memcpy(目标指针，源，复制长度)
 
     semp.post();   // 解锁。
 
     return true;
  }
 
-  // 更新共享内存进程组中当前进程的心跳时间。
+ // 更新共享内存进程组中当前进程的心跳时间。
  bool cpactive::uptatime()
  {
     if (m_pos==-1) return false;
 
-    (m_shm+m_pos)->atime=time(0);
+    (m_shm+m_pos)->atime=time(0);//当前时间的秒数（通过time(0)函数获取）
 
     return true;
+ }
+
+ cpactive::cpactive()// 初始化成员变量
+ {
+     m_shmid=0;
+     m_pos=-1;
+     m_shm=0;
  }
 
  cpactive::~cpactive()
@@ -1870,11 +1871,5 @@ csemp::~csemp()
     if (m_shm!=0) shmdt(m_shm);
  }
 
-  cpactive::~cpactive()
- {
-    // 把当前进程从共享内存的进程组中移去。
-    if (m_pos!=-1) memset(m_shm+m_pos,0,sizeof(struct st_procinfo));
 
-    // 把共享内存从当前进程中分离。
-    if (m_shm!=0) shmdt(m_shm);
- }
+} // namespace
