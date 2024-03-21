@@ -1,38 +1,6 @@
-#include "/project/public/_public.cpp"
-#include "/project/public/_ftp.h"
+#include "_public.h"
+#include "_ftp.h"
 using namespace idc;
-
-
-// 程序退出和信号2、15的处理函数。
-void EXIT(int sig);
-
-// 文件信息的结构体。
-struct st_fileinfo
-{
-    string filename;
-    string mtime;
-    st_fileinfo()=default;
-    st_fileinfo(const string &in_filename,const string &in_mtime):filename(in_filename),mtime(in_mtime) {}
-    void clear() { filename.clear(); mtime.clear(); }
-};
-
-map<string,string>     mfromok;     // 已上传成功文件，从starg.okfilename中加载。
-list<struct st_fileinfo> vfromdir;      // 客户端目录中的文件名。
-list<struct st_fileinfo> vtook;           // 本次不需要上传的文件。
-list<struct st_fileinfo> vupload;       // 本次需要上传的文件。
-
-// 把starg.localpath目录下的文件列表加载到vfromdir容器中。
-bool loadlocalfile();
-
-bool loadokfile();            // 加载starg.okfilename文件中的内容到容器vfromok中。
-bool loadlistfile();            // 把ftpclient.nlist()方法获取到的list文件加载到容器vfromnlist中。
-bool compmap();            // 比较vfromnlist和vfromok，得到vtook和vdownload。
-bool writetookfile();        // 把容器vtook中的数据写入starg.okfilename文件，覆盖之前的旧starg.okfilename文件。
-
-// 如果ptype==1，把上传成功的文件记录追加到starg.okfilename文件中。
-bool appendtookfile(struct st_fileinfo &stfileinfo);
-
-bool loadlistfile(); // 把ftpclient.nlist()方法获取到的list文件加载到容器vfilelist中
 
 // 程序运行参数的结构体。
 struct st_arg
@@ -49,19 +17,52 @@ struct st_arg
     char okfilename[256];      // 已上传成功文件名清单。
     int  timeout;                     // 进程心跳的超时时间。
     char pname[51];               // 进程名，建议用"ftpputfiles_后缀"的方式。
-}starg;
+} starg;
+
+// 文件信息的结构体。
+struct st_fileinfo
+{
+    string filename;
+    string mtime;
+    st_fileinfo()=default;
+    st_fileinfo(const string &in_filename,const string &in_mtime):filename(in_filename),mtime(in_mtime) {}
+    void clear() { filename.clear(); mtime.clear(); }
+};
+
+map<string,string>     mfromok;     // 已上传成功文件，从starg.okfilename中加载。
+list<struct st_fileinfo> vfromdir;      // 客户端目录中的文件名。
+list<struct st_fileinfo> vtook;           // 本次不需要上传的文件。
+list<struct st_fileinfo> vupload;       // 本次需要上传的文件。
 
 clogfile logfile;     // 日志文件对象。
 cftpclient ftp;       // 创建ftp客户端对象。
 cpactive pactive;  // 进程心跳的对象。
 
-void _help();        // 显示帮助文档。
+// 把starg.localpath目录下的文件列表加载到vfromdir容器中。
+bool loadlocalfile();
 
-bool _xmltoarg(const char *strxmlbuffer);  // 把xml解析到参数starg结构中。
+// 加载starg.okfilename文件中的内容到容器vfromok中。
+bool loadokfile();
+
+bool compmap();    // 比较vfromdir和mfromok，得到vtook和vupload。
+
+// 把容器vtook中的内容写入starg.okfilename文件，覆盖之前的旧starg.okfilename文件。
+bool writetookfile();
+
+// 如果ptype==1，把上传成功的文件记录追加到starg.okfilename文件中。
+bool appendtookfile(struct st_fileinfo &stfileinfo);
+
+// 程序退出和信号2、15的处理函数。
+void EXIT(int sig);
+
+void _help();
+
+// 把xml解析到参数starg结构中。
+bool _xmltoarg(char *strxmlbuffer);
 
 int main(int argc,char *argv[])
 {
-    if(argc!=3) {_help(); return -1;}
+    if (argc!=3) { _help(); return -1; }
 
     // 关闭全部的信号和输入输出。
     // 设置信号,在shell状态下可用 "kill + 进程号" 正常终止些进程。
@@ -78,15 +79,17 @@ int main(int argc,char *argv[])
     // 解析xml，得到程序运行的参数。
     if (_xmltoarg(argv[2])==false) return -1;
 
-    // 登录ftp服务器。
+    pactive.addpinfo(starg.timeout,starg.pname);  // 把进程的心跳信息写入共享内存。
+
+    // 登录ftp服务端。
     if (ftp.login(starg.host,starg.username,starg.password,starg.mode)==false)
     {
         logfile.write("ftp.login(%s,%s,%s) failed.\n%s\n",starg.host,starg.username,starg.password,ftp.response()); return -1;
     }
 
-    //logfile.write("ftp.login ok.\n");
+    // logfile.write("ftp.login ok.\n");  // 正式运行后，可以注释这行代码。
 
-        // 把starg.localpath目录下的文件列表加载到vfromdir容器中。
+    // 把starg.localpath目录下的文件列表加载到vfromdir容器中。
     if (loadlocalfile()==false)
     {
         logfile.write("loadlocalfile() failed.\n");  return -1;
@@ -155,27 +158,33 @@ int main(int argc,char *argv[])
     return 0;
 }
 
+void EXIT(int sig)
+{
+    printf("程序退出，sig=%d\n\n",sig);
+
+    exit(0);
+}
+
 void _help()
 {
     printf("\n");
-    printf("Using:/project/tools/bin/ftpgetfiles logfilename xmlbuffer\n\n");
+    printf("Using:/project/tools/bin/ftpputfiles logfilename xmlbuffer\n\n");
 
-    printf("Sample:/project/tools/bin/procctl 30 /project/tools/bin/ftpputfiles /log/idc/ftpputfiles_surfdata.log " \
-             "\"<host>192.168.174.129:21</host><mode>1</mode><username>test1</username><password>123456</password>"\
-             "<localpath>/tmp/idc/surfdata</localpath><remotepath>/idcdata/surfdata</remotepath>"\
-             "<matchname>SURF_ZH*.JSON</matchname>"\
-             "<matchname>*.TXT</matchname>"\
-             "<ptype>1</ptype><localpathbak>/tmp/idc/surfdatabak</localpathbak>"\
-             "<okfilename>/idcdata/ftplist/ftpputfiles_surfdata.xml</okfilename>"\
-             "<timeout>80</timeout><pname>ftpputfiles_surfdata</pname>\"\n\n\n");
+    printf("Sample:/project/tools/bin/procctl 30 /project/tools/bin/ftpputfiles /log/idc/ftpputfiles_surfdata.log "\
+              "\"<host>127.0.0.1:21</host><mode>1</mode><username>wucz</username><password>oracle</password>"\
+              "<localpath>/tmp/idc/surfdata</localpath><remotepath>/idcdata/surfdata</remotepath>"\
+              "<matchname>SURF_ZH*.JSON</matchname>"\
+              "<ptype>1</ptype><localpathbak>/tmp/idc/surfdatabak</localpathbak>"\
+              "<okfilename>/idcdata/ftplist/ftpputfiles_surfdata.xml</okfilename>"\
+              "<timeout>80</timeout><pname>ftpputfiles_surfdata</pname>\"\n\n\n");
 
     printf("本程序是通用的功能模块，用于把本地目录中的文件上传到远程的ftp服务器。\n");
     printf("logfilename是本程序运行的日志文件。\n");
     printf("xmlbuffer为文件上传的参数，如下：\n");
-    printf("<host>192.168.174.129:21</host> 远程服务端的IP和端口。\n");
+    printf("<host>127.0.0.1:21</host> 远程服务端的IP和端口。\n");
     printf("<mode>1</mode> 传输模式，1-被动模式，2-主动模式，缺省采用被动模式。\n");
-    printf("<username>test1</username> 远程服务端ftp的用户名。\n");
-    printf("<password>123456</password> 远程服务端ftp的密码。\n");
+    printf("<username>wucz</username> 远程服务端ftp的用户名。\n");
+    printf("<password>wuczpwd</password> 远程服务端ftp的密码。\n");
     printf("<remotepath>/tmp/ftpputest</remotepath> 远程服务端存放文件的目录。\n");
     printf("<localpath>/tmp/idc/surfdata</localpath> 本地文件存放的目录。\n");
     printf("<matchname>SURF_ZH*.JSON</matchname> 待上传文件匹配的规则。"\
@@ -245,13 +254,6 @@ bool _xmltoarg(char *strxmlbuffer)
     return true;
 }
 
-void EXIT(int sig)
-{
-    printf("程序退出，sig=%d\n\n",sig);
-
-    exit(0);
-}
-
 // 把starg.localpath目录下的文件列表加载到vfromdir容器中。
 bool loadlocalfile()
 {
@@ -271,40 +273,6 @@ bool loadlocalfile()
 
         vfromdir.emplace_back(dir.m_filename,dir.m_mtime);
     }
-
-    return true;
-}
-
-// 加载starg.okfilename文件中的内容到容器vfromok中。
-bool loadokfile()
-{
-    if (starg.ptype!=1) return true;
-
-    mfromok.clear();
-
-    cifile ifile;
-
-    // 注意：如果程序是第一次运行，starg.okfilename是不存在的，并不是错误，所以也返回true。
-    if ( (ifile.open(starg.okfilename))==false )  return true;
-
-    string strbuffer;
-
-    struct st_fileinfo stfileinfo;
-
-    while (true)
-    {
-        stfileinfo.clear();
-
-        if (ifile.readline(strbuffer)==false) break;
-
-        getxmlbuffer(strbuffer,"filename",stfileinfo.filename);
-        getxmlbuffer(strbuffer,"mtime",stfileinfo.mtime);
-
-        mfromok[stfileinfo.filename]=stfileinfo.mtime;
-    }
-
-    //for (auto &aa:mfromok)
-    //    logfile.write("filename=%s,mtime=%s\n",aa.first.c_str(),aa.second.c_str());
 
     return true;
 }
@@ -341,7 +309,6 @@ bool loadokfile()
     return true;
 }
 
-// 比较vfromnlist和vfromok，得到vtook和vdownload。
 bool compmap()    
 {
     vtook.clear(); 
