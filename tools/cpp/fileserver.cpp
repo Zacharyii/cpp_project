@@ -1,6 +1,5 @@
-/*
- * 程序名：fileserver.cpp，文件传输的服务端。
-*/
+// 程序名：fileserver.cpp，文件传输的服务端。
+
 #include "/project/public/_public.cpp"
 using namespace idc;
 

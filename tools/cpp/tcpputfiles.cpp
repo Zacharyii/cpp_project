@@ -1,7 +1,6 @@
-/*
- * 程序名：tcpputfiles.cpp，采用tcp协议，实现文件上传的客户端。
-*/
-#include "/project/public/_public.cpp"
+//程序名：tcpputfiles.cpp，采用tcp协议，实现文件上传的客户端。
+
+#include "_public.h"
 using namespace idc;
 
 // 程序运行的参数结构体。
@@ -136,7 +135,7 @@ void _help()
     printf("Using:/project/tools/bin/tcpputfiles logfilename xmlbuffer\n\n");
 
     printf("Sample:/project/tools/bin/procctl 20 /project/tools/bin/tcpputfiles /log/idc/tcpputfiles_surfdata.log "\
-              "\"<ip>192.168.174.128</ip><port>5005</port>"\
+              "\"<ip>192.168.150.128</ip><port>5005</port>"\
               "<clientpath>/tmp/client</clientpath><ptype>1</ptype>"
               "<srvpath>/tmp/server</srvpath>"\
               "<andchild>true</andchild><matchname>*.xml,*.txt,*.csv</matchname><timetvl>10</timetvl>"\

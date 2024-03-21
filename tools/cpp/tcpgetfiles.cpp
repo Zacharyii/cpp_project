@@ -1,7 +1,5 @@
-/*
- * 程序名：tcpgetfiles.cpp，采用tcp协议，实现文件下载的客户端。
-*/
-#include "/project/public/_public.cpp"
+//程序名：tcpgetfiles.cpp，采用tcp协议，实现文件下载的客户端。
+e "_public.h"
 using namespace idc;
 
 // 程序运行的参数结构体。
@@ -111,7 +109,7 @@ void _help()
     printf("Using:/project/tools/bin/tcpgetfiles logfilename xmlbuffer\n\n");
 
     printf("Sample:/project/tools/bin/procctl 20 /project/tools/bin/tcpgetfiles /log/idc/tcpgetfiles_surfdata.log "
-              "\"<ip>192.168.174.128</ip><port>5005</port>"\
+              "\"<ip>192.168.150.128</ip><port>5005</port>"\
               "<clientpath>/tmp/client</clientpath>"
               "<ptype>1</ptype><srvpath>/tmp/server</srvpath>"\
               "<andchild>true</andchild><matchname>*</matchname>"
